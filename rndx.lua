@@ -64,8 +64,8 @@ screenspace_general
     $vertextransform 1
 
     // Anti-aliasing smoothness
-    // I recommend keeping it at 1.75, going higher will be noticeable
-    $c2_y 1.75
+    // I recommend keeping it at 2.0, going higher will be noticeable
+    $c2_y 2.0
 }
 ]==]
 
