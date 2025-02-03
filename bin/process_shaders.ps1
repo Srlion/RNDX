@@ -1,36 +1,52 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory=$true, ValueFromPipeline=$true)][System.IO.FileInfo]$File,
-    [Parameter(Mandatory=$true)][string]$Version,
     [Parameter(Mandatory=$false)][System.UInt32]$Threads
 )
 
-if ($Version -notin @("20b", "30", "40", "41", "50", "51")) {
-	return
-}
+$validVersions = @("20b", "30", "40", "41", "50", "51")
 
 $fileList = $File.OpenText()
 while ($null -ne ($line = $fileList.ReadLine())) {
-	if ($line -match '^\s*$' -or $line -match '^\s*//') {
-		continue
-	}
+    if ($line -match '^\s*$' -or $line -match '^\s*//') {
+        continue
+    }
 
-	# Create a vmt file from template for each shader if it doesn't exist
-	$baseName = [System.IO.Path]::GetFileNameWithoutExtension($line) -replace "_ps2x$", ""
-	$templatePath = Join-Path $PSScriptRoot "../../../materials/effects/shaders/template.vmt"
-	$vmtPath = Join-Path $PSScriptRoot "../../../materials/effects/shaders/$baseName.vmt"
+    $line = $line.Trim()
+    $fileName = [System.IO.Path]::GetFileNameWithoutExtension($line)
+    $version = $null
 
-	if ((Test-Path $templatePath) -and -not (Test-Path $vmtPath)) {
-		$content = Get-Content $templatePath -Raw
-		$content = $content -replace '\$pixshader\s+"[^"]*"', "`$pixshader `"$baseName`_ps20`""
-		Set-Content -Path $vmtPath -Value $content
-	}
+    # Determine version based on filename suffix
+    if ($fileName -match '_ps(2x|30|40|41|50|51)$') {
+        $suffix = $matches[1]
+        switch ($suffix) {
+            '2x'   { $version = '20b' }
+            '30'   { $version = '30' }
+            '40'   { $version = '40' }
+            '41'   { $version = '41' }
+            '50'   { $version = '50' }
+            '51'   { $version = '51' }
+            default {
+                Write-Warning "Unrecognized suffix: $suffix in file $fileName. Skipping."
+                continue
+            }
+        }
+    } else {
+        Write-Warning "Filename $fileName does not have a recognized version suffix. Skipping."
+        continue
+    }
 
-	if ($Threads -ne 0) {
-		& "$PSScriptRoot\ShaderCompile" "/O" "3" "-threads" $Threads "-ver" $Version "-shaderpath" $File.DirectoryName $line
-		continue
-	}
+    if ($version -notin $validVersions) {
+        Write-Warning "Invalid version $version for file $fileName. Skipping."
+        continue
+    }
 
-	& "$PSScriptRoot\ShaderCompile" "/O" "3" "-ver" $Version "-shaderpath" $File.DirectoryName $line
+    # Build and execute the ShaderCompile command
+    $compileArgs = @("/O", "3", "-ver", $version, "-shaderpath", $File.DirectoryName, $line)
+    if ($Threads -ne 0) {
+        $compileArgs = @("/O", "3", "-threads", $Threads, "-ver", $version, "-shaderpath", $File.DirectoryName, $line)
+    }
+
+    & "$PSScriptRoot\ShaderCompile" $compileArgs
 }
 $fileList.Close()
