@@ -1,0 +1,4 @@
+*.vcs
+*.inc
+sound.cache
+shaders

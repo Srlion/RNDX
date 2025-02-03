@@ -1,0 +1,32 @@
+name: Build
+
+on: push
+
+jobs:
+  now:
+    runs-on: windows-2022
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\build_shaders.bat
+          tar -czf RNDX.tar.gz shaders
+          copy RNDX.tar.gz C:\RNDX.tar.gz
+          copy rndx.lua C:\rndx.lua
+
+      - name: Release
+        if: runner.os == 'Windows'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: 1
+          allowUpdates: true
+          artifacts: |
+            C:\RNDX.tar.gz
+            C:\rndx.lua
