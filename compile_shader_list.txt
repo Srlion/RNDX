@@ -1,4 +1,3 @@
-rndx_r_shaders1_ps30.hlsl
+rndx_r_shaders1_ps2x.hlsl
 rndx_bv_shaders1_ps30.hlsl
 rndx_bh_shaders1_ps30.hlsl
-rndx_vertex_shaders1_vs30.hlsl
