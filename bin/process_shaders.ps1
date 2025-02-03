@@ -17,7 +17,7 @@ while ($null -ne ($line = $fileList.ReadLine())) {
     $version = $null
 
     # Determine version based on filename suffix
-    if ($fileName -match '_ps(2x|30|40|41|50|51)$') {
+    if ($fileName -match '(2x|30|40|41|50|51)$') {
         $suffix = $matches[1]
         switch ($suffix) {
             '2x'   { $version = '20b' }
