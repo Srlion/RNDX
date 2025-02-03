@@ -3,7 +3,7 @@
 **Draw rounded shapes with ease.**
 RNDX is a lightweight and efficient library designed to make drawing rounded shapes simple, fast, and visually stunning.
 
-Using Shader Model 3.0, RNDX provides perfect anti-aliasing with no performance hit, allowing you to create beautiful interfaces and visuals with ease.
+~~Using Shader Model 3.0~~ No longer uses SM 3.0 (`length`/`fwidth`) for AA as there was a bug with some edgy cases, RNDX provides perfect anti-aliasing with no performance hit, allowing you to create beautiful interfaces and visuals with ease.
 
 ![Screenshot](thumbnail.png)
 ![Screenshot](thumbnail2.png)
