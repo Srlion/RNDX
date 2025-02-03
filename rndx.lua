@@ -224,4 +224,12 @@ RNDX.SHAPE_IOS = SHAPE_IOS
 
 RNDX.BLUR = BLUR
 
+function RNDX.SetFlag(flags, flag, bool)
+    if tobool(bool) then
+        return bit.bor(flags, flag)
+    else
+        return bit.band(flags, bit.bnot(flag))
+    end
+end
+
 return RNDX
