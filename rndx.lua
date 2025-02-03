@@ -42,7 +42,7 @@ local shader_mat = [==[
 screenspace_general
 {
     $pixshader ""
-    $vertexshader "rndx_vertex_shaders1_vs30"
+    $vertexshader ""
 
     $basetexture ""
     $texture1    ""
@@ -94,17 +94,19 @@ local function create_shader_mat(name, opts)
 end
 
 local ROUNDED_MAT = create_shader_mat("rounded", {
-    ["$pixshader"] = "rndx_r_shaders1_ps30",
+    ["$pixshader"] = "rndx_r_shaders1_ps20",
     ["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
     FixUV = true
 })
 
 local BLUR_H_MAT = create_shader_mat("blur_horizontal", {
     ["$pixshader"] = "rndx_bh_shaders1_ps30",
+    ["$vertexshader"] = "rndx_vertex_shaders1_vs30",
     ["$basetexture"] = "_rt_FullFrameFB",
 })
 local BLUR_V_MAT = create_shader_mat("blur_vertical", {
     ["$pixshader"] = "rndx_bv_shaders1_ps30",
+    ["$vertexshader"] = "rndx_vertex_shaders1_vs30",
     ["$basetexture"] = "_rt_FullFrameFB",
 })
 
