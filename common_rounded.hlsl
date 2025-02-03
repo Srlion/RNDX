@@ -40,13 +40,17 @@ float calculate_rounded_alpha(PS_INPUT i) {
     float4 inner_radius = max(RADIUS - OUTLINE_THICKNESS, 0.0);
     float distance_inner = rounded_box_sdf(screen_pos - rect_half_size, inner_half_size, inner_radius);
 
-    // Offset SDF distances by AA to implicitly increase visual radius
-    float adjusted_distance_outer = distance_outer + AA;
-    float adjusted_distance_inner = distance_inner + AA;
+    // Determine if AA should be applied (when both dimensions are >= 3 pixels)
+    float aa_enabled = step(3.0, SIZE.x) * step(3.0, SIZE.y);
+    float effective_AA = AA * aa_enabled;
+
+    // Offset SDF distances by AA
+    float adjusted_distance_outer = distance_outer + effective_AA;
+    float adjusted_distance_inner = distance_inner + effective_AA;
 
     // Compute alpha with smoothstep (like Shadertoy's edge softness)
-    float alpha_outer = 1.0 - smoothstep(0.0, AA, adjusted_distance_outer);
-    float alpha_inner = 1.0 - smoothstep(0.0, AA, adjusted_distance_inner);
+    float alpha_outer = 1.0 - smoothstep(0.0, effective_AA, adjusted_distance_outer);
+    float alpha_inner = 1.0 - smoothstep(0.0, effective_AA, adjusted_distance_inner);
 
     // Combine results (outer alpha minus inner alpha)
     return alpha_outer * (1.0 - alpha_inner);
