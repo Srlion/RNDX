@@ -14,6 +14,13 @@ local surface_SetMaterial = surface.SetMaterial
 local surface_DrawTexturedRectUV = surface.DrawTexturedRectUV
 local surface_DrawTexturedRect = surface.DrawTexturedRect
 local render_UpdateScreenEffectTexture = render.UpdateScreenEffectTexture
+local math_min = math.min
+local math_max = math.max
+
+-- I know it exists in gmod, but I want to have math.min and math.max localized
+local function math_clamp(val, min, max)
+    return math_min(math_max(val, min), max)
+end
 
 local NEW_FLAG; do
     local flags_n = -1
@@ -143,10 +150,11 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
     SetMatFloat(mat, "$c1_y", h)
 
     -- Roundness
-    SetMatFloat(mat, "$c0_w", bit_band(flags, NO_TL) == 0 and tl or 0)
-    SetMatFloat(mat, "$c0_z", bit_band(flags, NO_TR) == 0 and tr or 0)
-    SetMatFloat(mat, "$c0_x", bit_band(flags, NO_BL) == 0 and bl or 0)
-    SetMatFloat(mat, "$c0_y", bit_band(flags, NO_BR) == 0 and br or 0)
+    local max_rad = math_min(w, h) / 2
+    SetMatFloat(mat, "$c0_w", bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
+    SetMatFloat(mat, "$c0_z", bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
+    SetMatFloat(mat, "$c0_x", bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
+    SetMatFloat(mat, "$c0_y", bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
     --
 
     if not using_blur then
