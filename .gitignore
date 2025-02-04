@@ -2,3 +2,4 @@
 *.inc
 sound.cache
 shaders
+src/shaders

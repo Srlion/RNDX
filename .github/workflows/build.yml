@@ -17,9 +17,9 @@ jobs:
         shell: pwsh
         run: |
           .\build_shaders.bat
-          tar -czf RNDX.tar.gz shaders
+          tar -czf RNDX.tar.gz src/shaders
           copy RNDX.tar.gz C:\RNDX.tar.gz
-          copy rndx.lua C:\rndx.lua
+          copy src/rndx.lua C:\rndx.lua
 
       - name: Release
         if: runner.os == 'Windows'
