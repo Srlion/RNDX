@@ -1,4 +1,9 @@
-rndx_r_shaders1_psxx.hlsl -v-20b -v-30
-rndx_bh_shaders1_psxx.hlsl -v-30
-rndx_bv_shaders1_psxx.hlsl -v-30
-rndx_vertex_shaders1_vsxx.hlsl -v-30
+rndx_vertex_1_vsxx.hlsl -v-30
+
+rndx_rounded_1_psxx.hlsl -v-20b -v-30
+rndx_rounded_bh_1_psxx.hlsl -v-30
+rndx_rounded_bv_1_psxx.hlsl -v-30
+
+rndx_shadows_1_psxx.hlsl -v-20b
+rndx_shadows_bh_1_psxx.hlsl -v-30
+rndx_shadows_bv_1_psxx.hlsl -v-30

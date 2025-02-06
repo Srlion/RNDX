@@ -4,30 +4,14 @@
 // https://www.shadertoy.com/view/Xd33Rf
 
 #include "common_rounded.hlsl"
-
-static const float2 TEXTURE_DIMENSIONS = float2(1920, 1080);
-
-static const float w[8] = {0.026109, 0.034202, 0.043219, 0.052683, 0.061948, 0.070266, 0.076883, 0.081149};
-static const float o[8] = {15.5, 13.5, 11.5, 9.5, 7.5, 5.5, 3.5, 1.5};
+#include "blur.hlsl"
 
 float4 main(PS_INPUT i) : COLOR
 {
-    float rounded_alpha = calculate_rounded_alpha(i);
+    float rounded_alpha = calculate_smooth_rounded_alpha(i);
 
     float2 uv = i.pos.xy;
-    float3 blr = float3(0.0, 0.0, 0.0);
-
-    [unroll] for(int j=0; j<8; j++) {
-        blr += w[j] * tex2D(TexBase, (uv + float2(-o[j], 0.0)) / TEXTURE_DIMENSIONS).rgb;
-    }
-
-    blr += 0.041312 * tex2D(TexBase, (uv + float2(0.0, 0.0)) / TEXTURE_DIMENSIONS).rgb;
-
-    [unroll] for(j=7; j>=0; j--) {
-        blr += w[j] * tex2D(TexBase, (uv + float2(o[j], 0.0)) / TEXTURE_DIMENSIONS).rgb;
-    }
-
-    blr /= 0.93423; // Normalize
+    float3 blr = vertical_blur(uv);
 
     return float4(blr, rounded_alpha);
 }

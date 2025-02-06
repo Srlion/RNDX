@@ -1,4 +1,6 @@
 // common data shared among all screenspace shaders
+#ifndef __COMMON_HLSL__
+#define __COMMON_HLSL__
 
 // up to four textures available for sampling
 sampler TexBase : register( s0 ); // $basetexture
@@ -53,3 +55,5 @@ struct PS_INPUT
     // screenspace position
     float2 pos            : VPOS;
 };
+
+#endif // __COMMON_HLSL__

@@ -16,6 +16,22 @@ local surface_DrawTexturedRect = surface.DrawTexturedRect
 local render_UpdateScreenEffectTexture = render.UpdateScreenEffectTexture
 local math_min = math.min
 local math_max = math.max
+local DisableClipping = DisableClipping
+
+-- These are constants from common_rounded.hlsl file
+local C_RADIUS_X = "$c0_x"
+local C_RADIUS_Y = "$c0_y"
+local C_RADIUS_W = "$c0_w"
+local C_RADIUS_Z = "$c0_z"
+
+local C_SIZE_W = "$c1_x"
+local C_SIZE_H = "$c1_y"
+
+local C_POWER_PARAM = "$c1_z"
+local C_USE_TEXTURE = "$c1_w"
+local C_OUTLINE_THICKNESS = "$c2_x"
+local C_AA = "$c2_y"
+--
 
 -- I know it exists in gmod, but I want to have math.min and math.max localized
 local function math_clamp(val, min, max)
@@ -56,7 +72,10 @@ screenspace_general
     $texture2    ""
     $texture3    ""
 
-    $ignorez        1
+    // Mandatory, don't touch
+    $ignorez            1
+    $vertexcolor        1
+    $vertextransform    1
     "<dx90"
     {
         $no_draw 1
@@ -67,12 +86,6 @@ screenspace_general
     $alpha_blend               1 // for AA
     $linearwrite               1 // to disable broken gamma correction for colors
     $linearread_basetexture    1 // to disable broken gamma correction for textures
-    $vertexcolor 1
-    $vertextransform 1
-
-    // Anti-aliasing smoothness
-    // I recommend keeping it at 2.0, going higher will be noticeable
-    $c2_y 2.0
 }
 ]==]
 
@@ -101,19 +114,42 @@ local function create_shader_mat(name, opts)
 end
 
 local ROUNDED_MAT = create_shader_mat("rounded", {
-    ["$pixshader"] = "rndx_r_shaders1_ps20",
+    ["$pixshader"] = "rndx_rounded_1_ps30",
+    ["$vertexshader"] = "rndx_vertex_1_vs30",
+    [C_USE_TEXTURE] = 0, -- no texture
+})
+
+local ROUNDED_TEXTURE_MAT = create_shader_mat("rounded_texture", {
+    ["$pixshader"] = "rndx_rounded_1_ps30",
+    ["$vertexshader"] = "rndx_vertex_1_vs30",
     ["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
-    FixUV = true
+    [C_USE_TEXTURE] = 1, -- this indicates that we have a texture
 })
 
 local BLUR_H_MAT = create_shader_mat("blur_horizontal", {
-    ["$pixshader"] = "rndx_bh_shaders1_ps30",
-    ["$vertexshader"] = "rndx_vertex_shaders1_vs30",
+    ["$pixshader"] = "rndx_rounded_bh_1_ps30",
+    ["$vertexshader"] = "rndx_vertex_1_vs30",
     ["$basetexture"] = "_rt_FullFrameFB",
 })
 local BLUR_V_MAT = create_shader_mat("blur_vertical", {
-    ["$pixshader"] = "rndx_bv_shaders1_ps30",
-    ["$vertexshader"] = "rndx_vertex_shaders1_vs30",
+    ["$pixshader"] = "rndx_rounded_bv_1_ps30",
+    ["$vertexshader"] = "rndx_vertex_1_vs30",
+    ["$basetexture"] = "_rt_FullFrameFB",
+})
+
+local SHADOWS_MAT = create_shader_mat("rounded_shadows", {
+    ["$pixshader"] = "rndx_shadows_1_ps20b",
+    [C_USE_TEXTURE] = 0, -- no texture
+})
+
+local SHADOWS_BLUR_H_MAT = create_shader_mat("shadows_blur_horizontal", {
+    ["$pixshader"] = "rndx_shadows_bh_1_ps30",
+    ["$vertexshader"] = "rndx_vertex_1_vs30",
+    ["$basetexture"] = "_rt_FullFrameFB",
+})
+local SHADOWS_BLUR_V_MAT = create_shader_mat("shadows_blur_vertical", {
+    ["$pixshader"] = "rndx_shadows_bv_1_ps30",
+    ["$vertexshader"] = "rndx_vertex_1_vs30",
     ["$basetexture"] = "_rt_FullFrameFB",
 })
 
@@ -128,7 +164,6 @@ local SetMatTexture = ROUNDED_MAT.SetTexture
 
 local DEFAULT_DRAW_FLAGS = SHAPE_FIGMA
 
-local DRAW_SECOND_BLUR = false
 local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thickness)
     if col and col.a == 0 then
         return
@@ -142,34 +177,30 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 
     local using_blur = bit_band(flags, BLUR) ~= 0
     if using_blur then
-        mat = DRAW_SECOND_BLUR and BLUR_H_MAT or BLUR_V_MAT
-        render_UpdateScreenEffectTexture()
+        RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
+        return
     end
 
-    SetMatFloat(mat, "$c1_x", w)
-    SetMatFloat(mat, "$c1_y", h)
+    if texture then
+        mat = ROUNDED_TEXTURE_MAT
+        SetMatTexture(mat, "$basetexture", texture)
+    end
+
+    SetMatFloat(mat, C_SIZE_W, w)
+    SetMatFloat(mat, C_SIZE_H, h)
 
     -- Roundness
     local max_rad = math_min(w, h) / 2
-    SetMatFloat(mat, "$c0_w", bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
-    SetMatFloat(mat, "$c0_z", bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
-    SetMatFloat(mat, "$c0_x", bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
-    SetMatFloat(mat, "$c0_y", bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_W, bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_Z, bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_X, bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_Y, bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
     --
 
-    if not using_blur then
-        SetMatFloat(mat, "$c1_w", texture and 1 or 0)
-        SetMatTexture(mat, "$basetexture", texture or "loveyoumom")
-    end
-
-    if thickness then
-        SetMatFloat(mat, "$c2_x", thickness)
-    else
-        SetMatFloat(mat, "$c2_x", 3.402823466e+38) -- max outline value for filled boxes
-    end
+    SetMatFloat(mat, C_OUTLINE_THICKNESS, thickness or -1) -- no outline = -1
 
     local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-    SetMatFloat(mat, "$c1_z", shape_value or 2.2)
+    SetMatFloat(mat, C_POWER_PARAM, shape_value or 2.2)
 
     if col then
         surface_SetDrawColor(col)
@@ -178,19 +209,9 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
     end
 
     surface_SetMaterial(mat)
-    if FIX_UV[mat] then
-        -- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
-        -- fixes setting $basetexture to ""(none) not working correctly
-        surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
-    else
-        surface_DrawTexturedRect(x, y, w, h)
-    end
-
-    if using_blur and not DRAW_SECOND_BLUR then
-        DRAW_SECOND_BLUR = true
-        draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thickness)
-        DRAW_SECOND_BLUR = false
-    end
+    -- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
+    -- fixes setting $basetexture to ""(none) not working correctly
+    surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
 end
 
 function RNDX.Draw(r, x, y, w, h, col, flags)
@@ -218,6 +239,129 @@ end
 
 function RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)
     RNDX.DrawOutlined(r / 2, x - r / 2, y - r / 2, r, r, col, thickness, (flags or 0) + SHAPE_CIRCLE)
+end
+
+function RNDX.DrawCircleTexture(x, y, r, col, texture, flags)
+    RNDX.DrawTexture(r / 2, x - r / 2, y - r / 2, r, r, col, texture, (flags or 0) + SHAPE_CIRCLE)
+end
+
+function RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)
+    RNDX.DrawMaterial(r / 2, x - r / 2, y - r / 2, r, r, col, mat, (flags or 0) + SHAPE_CIRCLE)
+end
+
+local DRAW_SECOND_BLUR = false
+local USE_SHADOWS_BLUR = false
+function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
+    if not flags then
+        flags = DEFAULT_DRAW_FLAGS
+    end
+
+    local mat; if DRAW_SECOND_BLUR then
+        mat = USE_SHADOWS_BLUR and SHADOWS_BLUR_H_MAT or BLUR_H_MAT
+    else
+        mat = USE_SHADOWS_BLUR and SHADOWS_BLUR_V_MAT or BLUR_V_MAT
+    end
+
+    SetMatFloat(mat, C_SIZE_W, w)
+    SetMatFloat(mat, C_SIZE_H, h)
+
+    -- Roundness
+    local max_rad = math_min(w, h) / 2
+    SetMatFloat(mat, C_RADIUS_W, bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_Z, bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_X, bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_Y, bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
+    --
+
+    SetMatFloat(mat, C_OUTLINE_THICKNESS, thickness or -1) -- no outline = -1
+
+    local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
+    SetMatFloat(mat, C_POWER_PARAM, shape_value or 2.2)
+
+    render_UpdateScreenEffectTexture() -- we need this otherwise anything that is being drawn before will not be drawn
+
+    surface_SetDrawColor(255, 255, 255, 255)
+    surface_SetMaterial(mat)
+    surface_DrawTexturedRect(x, y, w, h)
+
+    if not DRAW_SECOND_BLUR then
+        DRAW_SECOND_BLUR = true
+        RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
+        DRAW_SECOND_BLUR = false
+    end
+end
+
+function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)
+    if col and col.a == 0 then
+        return
+    end
+
+    if not flags then
+        flags = DEFAULT_DRAW_FLAGS
+    end
+
+    local using_blur = bit_band(flags, BLUR) ~= 0
+
+    -- Shadows are a bit bigger than the actual box
+    spread = spread or 30
+    intensity = intensity or spread * 1.2
+
+    x = x - spread
+    y = y - spread
+    w = w + (spread * 2)
+    h = h + (spread * 2)
+
+    tl = tl + (spread * 2)
+    tr = tr + (spread * 2)
+    bl = bl + (spread * 2)
+    br = br + (spread * 2)
+    --
+
+    local mat = SHADOWS_MAT
+    SetMatFloat(mat, C_SIZE_W, w)
+    SetMatFloat(mat, C_SIZE_H, h)
+
+    -- Roundness
+    local max_rad = math_min(w, h) / 2
+    SetMatFloat(mat, C_RADIUS_W, bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_Z, bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_X, bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
+    SetMatFloat(mat, C_RADIUS_Y, bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
+    --
+
+    SetMatFloat(mat, C_OUTLINE_THICKNESS, thickness or -1) -- no outline = -1
+    SetMatFloat(mat, C_AA, intensity) -- AA
+
+    local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
+    SetMatFloat(mat, C_POWER_PARAM, shape_value or 2.2)
+
+    -- if we are inside a panel, we need to draw outside of it
+    local old_clipping_state = DisableClipping(true)
+
+    if using_blur then
+        USE_SHADOWS_BLUR = true
+        SetMatFloat(SHADOWS_BLUR_H_MAT, C_AA, intensity) -- AA
+        SetMatFloat(SHADOWS_BLUR_V_MAT, C_AA, intensity) -- AA
+        RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
+        USE_SHADOWS_BLUR = false
+    end
+
+    if col then
+        surface_SetDrawColor(col)
+    else
+        surface_SetDrawColor(0, 0, 0, 170)
+    end
+
+    surface_SetMaterial(mat)
+    -- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
+    -- fixes having no $basetexture causing uv to be broken
+    surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
+
+    DisableClipping(old_clipping_state)
+end
+
+function RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)
+    RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
 end
 
 -- Flags
