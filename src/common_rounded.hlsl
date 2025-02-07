@@ -41,12 +41,11 @@ float uv_filter_width_bias(float dist, float2 uv) {
     return saturate(1.0 - biasedSDF / fw);
 }
 
-// float blended_AA(float dist, float2 uv) {
-//     float linear_cov = uv_filter_width_bias(dist, uv);
-//     float smooth_cov = 1.0 - smoothstep(0.0, 1, dist + 1);
-//     return lerp(linear_cov, smooth_cov, 0.06);
-// }
-//
+float blended_AA(float dist, float2 uv) {
+    float linear_cov = uv_filter_width_bias(dist, uv);
+    float smooth_cov = 1.0 - smoothstep(0.0, 1, dist + 1);
+    return lerp(linear_cov, smooth_cov, 0.07);
+}
 
 float calculate_rounded_alpha(PS_INPUT i) {
     float2 screen_pos = i.uv.xy * SIZE;
@@ -54,7 +53,7 @@ float calculate_rounded_alpha(PS_INPUT i) {
 
     // Compute outer SDF distance (original radii)
     float dist_outer = rounded_box_sdf(screen_pos - rect_half_size, rect_half_size, RADIUS);
-    float aa_outer = uv_filter_width_bias(dist_outer, screen_pos);
+    float aa_outer = blended_AA(dist_outer, screen_pos);
     if (OUTLINE_THICKNESS < 0)
         return aa_outer;
 
@@ -66,7 +65,7 @@ float calculate_rounded_alpha(PS_INPUT i) {
     //     return alpha_outer; // Fallback to filled when outline is too thick
 
     float dist_inner = rounded_box_sdf(screen_pos - rect_half_size, inner_half_size, inner_radius);
-    float aa_inner = uv_filter_width_bias(dist_inner, screen_pos);
+    float aa_inner = blended_AA(dist_inner, screen_pos);
     return aa_outer * (1.0 - aa_inner);
 }
 
