@@ -11,6 +11,9 @@ RNDX is a lightweight and efficient library designed to make drawing rounded sha
 
 ---
 
+> [!NOTE]  
+> Currently it only works on `dev` branch, it used to work on `x86-64` but Rubat reverted the changes, so you can only use it on `dev` currently.
+
 ## ✨ Why RNDX?
 
 - **Blazing Fast Performance**: Optimized for speed, RNDX is incredibly lightweight and efficient. _(It will get even faster once we [get `mat:SetFloat4()`](https://github.com/Facepunch/garrysmod-requests/issues/2606)!)_
@@ -21,6 +24,9 @@ RNDX is a lightweight and efficient library designed to make drawing rounded sha
 ---
 
 ## 🛠️ Get Started
+
+> [!NOTE]  
+> Currently it only works on `dev` branch, it used to work on `x86-64` but Rubat reverted the changes, so you can only use it on `dev` currently.
 
 1. Download `RNDX.tar.gz` & `rndx.lua` from [GitHub releases](https://github.com/Srlion/RNDX/releases/latest).
 2. Add the content of `RNDX.tar.gz` to your **gmod client** `garrysmod` folder. (Temporarily until we get `thirdparty` support!)
