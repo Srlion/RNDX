@@ -9,24 +9,24 @@ jobs:
       contents: write
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Bump Version
+        id: bump_version
+        uses: Srlion/float-version-semantic@d71f36b2a2097a19d537d137e99eed9177ec60bd
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
-        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           .\build_shaders.bat
-          tar -czf RNDX.tar.gz src/shaders
-          copy RNDX.tar.gz C:\RNDX.tar.gz
+          python build.py ${{ steps.bump_version.outputs.new_tag }}
           copy src/rndx.lua C:\rndx.lua
 
       - name: Release
-        if: runner.os == 'Windows'
         uses: ncipollo/release-action@v1
         with:
           tag: 1
           allowUpdates: true
-          artifacts: |
-            C:\RNDX.tar.gz
-            C:\rndx.lua
+          artifacts: C:\rndx.lua

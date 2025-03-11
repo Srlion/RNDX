@@ -3,7 +3,7 @@
 **Draw rounded shapes with ease.**
 RNDX is a lightweight and efficient library designed to make drawing rounded shapes simple, fast, and visually stunning.
 
-~~Using Shader Model 3.0~~ No longer uses SM 3.0 (`length`/`fwidth`) for AA as there was a bug with some edgy cases, RNDX provides perfect anti-aliasing with no performance hit, allowing you to create beautiful interfaces and visuals with ease.
+Using Shader Model 3.0, RNDX provides near-perfect anti-aliasing with no performance hit, allowing you to create beautiful interfaces and visuals with ease.
 
 ![Screenshot](thumbnail.png)
 ![Screenshot](thumbnail2.png)
@@ -22,9 +22,9 @@ RNDX is a lightweight and efficient library designed to make drawing rounded sha
 
 ## 🛠️ Get Started
 
-1. Download `RNDX.tar.gz` & `rndx.lua` from [GitHub releases](https://github.com/Srlion/RNDX/releases/latest).
-2. Add the content of `RNDX.tar.gz` to your **gmod client** `garrysmod` folder. (Temporarily until we get `thirdparty` support!)
-3. `AddCSLuaFile` & `include` `rndx.lua`.
+1. Download `rndx.lua` from [GitHub releases](https://github.com/Srlion/RNDX/releases/latest).
+2. Add `rndx.lua` to your project.
+3. Run `include` on `rndx.lua`. (It's already calls `AddCSLuaFile` for you!)
 4. Voilà! You're ready to draw rounded shapes with ease. 🎉
 
 ---
@@ -32,6 +32,7 @@ RNDX is a lightweight and efficient library designed to make drawing rounded sha
 ## 📐 Usage
 
 ```lua
+local RNDX = include("rndx.lua")
 hook.Add("HUDPaint", "RNDX Example", function()
     local flags = RNDX.NO_TL + RNDX.NO_TR + RNDX.SHAPE_IOS
     RNDX.Draw(10, 100, 100, 200, 200, nil, flags + RNDX.BLUR)
@@ -72,7 +73,11 @@ end)
 
 ### `RNDX.DrawCircle(x, y, r, col, flags)` <-- Just a wrapper for `RNDX.Draw` with `RNDX.SHAPE_CIRCLE`.
 
-### `RNDX.DrawCircle(x, y, r, col, thickness, flags)`
+### `RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)`
+
+### `RNDX.DrawCircleTexture(x, y, r, col, texture, flags)`
+
+### `RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)`
 
 ---
 

@@ -44,7 +44,7 @@ float uv_filter_width_bias(float dist, float2 uv) {
 float blended_AA(float dist, float2 uv) {
     float linear_cov = uv_filter_width_bias(dist, uv);
     float smooth_cov = 1.0 - smoothstep(0.0, 1, dist + 1);
-    return lerp(linear_cov, smooth_cov, 0.07);
+    return lerp(linear_cov, smooth_cov, 0.06);
 }
 
 float calculate_rounded_alpha(PS_INPUT i) {
