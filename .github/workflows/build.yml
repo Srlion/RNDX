@@ -27,6 +27,6 @@ jobs:
       - name: Release
         uses: ncipollo/release-action@v1
         with:
-          tag: 1
+          tag: ${{ steps.bump_version.outputs.new_tag }}
           allowUpdates: true
           artifacts: C:\rndx.lua
