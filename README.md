@@ -11,9 +11,6 @@ Using Shader Model 3.0, RNDX provides near-perfect anti-aliasing with no perform
 
 ---
 
-> [!NOTE]
-> Currently it only works on `dev` branch, it used to work on `x86-64` but Rubat reverted the changes, so you can only use it on `dev` currently.
-
 ## ✨ Why RNDX?
 
 - **Blazing Fast Performance**: Optimized for speed, RNDX is incredibly lightweight and efficient. _(It will get even faster once we [get `mat:SetFloat4()`](https://github.com/Facepunch/garrysmod-requests/issues/2606)!)_
