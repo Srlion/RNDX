@@ -211,7 +211,7 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 	SetMatFloat(mat, C_POWER_PARAM, shape_value or 2.2)
 
 	if col then
-		surface_SetDrawColor(col)
+		surface_SetDrawColor(col.r, col.g, col.b, col.a)
 	else
 		surface_SetDrawColor(255, 255, 255, 255)
 	end
@@ -355,7 +355,7 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 	end
 
 	if col then
-		surface_SetDrawColor(col)
+		surface_SetDrawColor(col.r, col.g, col.b, col.a)
 	else
 		surface_SetDrawColor(0, 0, 0, 255)
 	end
