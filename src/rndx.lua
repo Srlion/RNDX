@@ -146,8 +146,8 @@ local BLUR_V_MAT = create_shader_mat("blur_vertical", {
 })
 
 local SHADOWS_MAT = create_shader_mat("rounded_shadows", {
-	["$pixshader"] = GET_SHADER("rndx_shadows_ps20b"),
-	[C_USE_TEXTURE] = 0, -- no texture
+	["$pixshader"] = GET_SHADER("rndx_shadows_ps30"),
+	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
 })
 
 local SHADOWS_BLUR_H_MAT = create_shader_mat("shadows_blur_horizontal", {
