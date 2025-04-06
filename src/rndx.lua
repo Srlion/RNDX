@@ -124,13 +124,8 @@ local ROUNDED_TEXTURE_MAT = create_shader_mat("rounded_texture", {
 	["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
 })
 
-local BLUR_H_MAT = create_shader_mat("blur_horizontal", {
-	["$pixshader"] = GET_SHADER("rndx_rounded_bh_ps30"),
-	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = "_rt_FullFrameFB",
-})
-local BLUR_V_MAT = create_shader_mat("blur_vertical", {
-	["$pixshader"] = GET_SHADER("rndx_rounded_bv_ps30"),
+local ROUNDED_BLUR_MAT = create_shader_mat("blur_horizontal", {
+	["$pixshader"] = GET_SHADER("rndx_rounded_blur_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
 	["$basetexture"] = "_rt_FullFrameFB",
 })
@@ -140,13 +135,8 @@ local SHADOWS_MAT = create_shader_mat("rounded_shadows", {
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
 })
 
-local SHADOWS_BLUR_H_MAT = create_shader_mat("shadows_blur_horizontal", {
-	["$pixshader"] = GET_SHADER("rndx_shadows_bh_ps30"),
-	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = "_rt_FullFrameFB",
-})
-local SHADOWS_BLUR_V_MAT = create_shader_mat("shadows_blur_vertical", {
-	["$pixshader"] = GET_SHADER("rndx_shadows_bv_ps30"),
+local SHADOWS_BLUR_MAT = create_shader_mat("shadows_blur_horizontal", {
+	["$pixshader"] = GET_SHADER("rndx_shadows_blur_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
 	["$basetexture"] = "_rt_FullFrameFB",
 })
@@ -193,25 +183,18 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 		flags = DEFAULT_DRAW_FLAGS
 	end
 
-	local mat = ROUNDED_MAT
-
 	local using_blur = bit_band(flags, BLUR) ~= 0
 	if using_blur then
 		RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 		return
 	end
 
-	if texture then
+	local mat = ROUNDED_MAT; if texture then
 		mat = ROUNDED_TEXTURE_MAT
 		MATERIAL_SetTexture(mat, "$basetexture", texture)
 	end
-
-	-- Roundness
 	local max_rad = math_min(w, h) / 2
-	--
-
 	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-
 	SetParams(
 		mat,
 		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
@@ -230,7 +213,6 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 	else
 		surface_SetDrawColor(255, 255, 255, 255)
 	end
-
 	surface_SetMaterial(mat)
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
 	-- fixes setting $basetexture to ""(none) not working correctly
@@ -272,7 +254,6 @@ function RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)
 	RNDX.DrawMaterial(r / 2, x - r / 2, y - r / 2, r, r, col, mat, (flags or 0) + SHAPE_CIRCLE)
 end
 
-local DRAW_SECOND_BLUR = false
 local USE_SHADOWS_BLUR = false
 local SHADOWS_AA = 0
 function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
@@ -281,25 +262,15 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	end
 
 	local aa = 0
-	local mat; if DRAW_SECOND_BLUR then
-		if USE_SHADOWS_BLUR then
-			mat = SHADOWS_BLUR_V_MAT
-			aa = SHADOWS_AA
-		else
-			mat = BLUR_V_MAT
-		end
+	local mat; if USE_SHADOWS_BLUR then
+		mat = SHADOWS_BLUR_MAT
+		aa = SHADOWS_AA
 	else
-		if USE_SHADOWS_BLUR then
-			mat = SHADOWS_BLUR_H_MAT
-			aa = SHADOWS_AA
-		else
-			mat = BLUR_H_MAT
-		end
+		mat = ROUNDED_BLUR_MAT
 	end
 
 	local max_rad = math_min(w, h) / 2
 	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-
 	SetParams(
 		mat,
 		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
@@ -318,12 +289,6 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	surface_SetDrawColor(255, 255, 255, 255)
 	surface_SetMaterial(mat)
 	surface_DrawTexturedRect(x, y, w, h)
-
-	if not DRAW_SECOND_BLUR then
-		DRAW_SECOND_BLUR = true
-		RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
-		DRAW_SECOND_BLUR = false
-	end
 end
 
 function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)
@@ -353,10 +318,8 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 	--
 
 	local mat = SHADOWS_MAT
-
 	local max_rad = math_min(w, h) / 2
 	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-
 	SetParams(
 		mat,
 		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
@@ -385,7 +348,6 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 	else
 		surface_SetDrawColor(0, 0, 0, 255)
 	end
-
 	surface_SetMaterial(mat)
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
 	-- fixes having no $basetexture causing uv to be broken

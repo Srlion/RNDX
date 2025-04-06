@@ -1,9 +1,7 @@
 rndx_vertex_vsxx.hlsl -v-30
 
 rndx_rounded_psxx.hlsl -v-30
-rndx_rounded_bh_psxx.hlsl -v-30
-rndx_rounded_bv_psxx.hlsl -v-30
+rndx_rounded_blur_psxx.hlsl -v-30
 
 rndx_shadows_psxx.hlsl -v-30
-rndx_shadows_bh_psxx.hlsl -v-30
-rndx_shadows_bv_psxx.hlsl -v-30
+rndx_shadows_blur_psxx.hlsl -v-30

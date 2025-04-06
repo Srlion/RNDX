@@ -92,6 +92,35 @@ end)
 
 ---
 
+## Benchmarks
+
+Benchmarking has to be done with FPS meter, not checking how long cpu takes to draw.
+
+#### Rounded Shapes
+
+```lua
+local RNDX = include("rndx.lua")
+local draw_RoundedBox = draw.RoundedBox
+local col = Color(0, 0, 0, 255)
+hook.Add("HUDPaint", "my_shader_draw", function()
+	for i = 1, 3000 do
+		RNDX.Draw(20, 20, 20, 200, 200, col)
+		-- draw_RoundedBox(20, 20, 20, 200, 200, col)
+	end
+end)
+```
+
+- `RNDX`: 140 FPS
+- `draw.RoundedBox`: 43 FPS
+
+#### Blur
+
+150 Calls
+
+- `Current RNDX`: 105 fps
+- `Previous RNDX`: 73 fps
+- https://pastebin.com/urx4Qvez : 59 fps
+
 ## 📜 License
 
 RNDX is open-source and free to use. Feel free to contribute or report issues on GitHub!

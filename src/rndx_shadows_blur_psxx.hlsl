@@ -9,9 +9,6 @@
 float4 main(PS_INPUT i) : COLOR
 {
     float rounded_alpha = calculate_smooth_rounded_alpha(i);
-
-    float2 uv = i.pos.xy;
-    float3 blr = vertical_blur(uv);
-
-    return float4(blr, rounded_alpha);
+    float4 blr = blur(i.pos * TexBaseSize);
+    return float4(blr.rgb, rounded_alpha);
 }
