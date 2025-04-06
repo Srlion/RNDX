@@ -49,6 +49,8 @@ class GMAWriter:
         return buffer.getvalue()
 
 def main():
+    os.system("build_shaders.bat")
+
     version = str(int(time.time()))
     writer = GMAWriter(f"RNDX_{version}", 12345678901234567)
 
