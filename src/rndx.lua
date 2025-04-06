@@ -40,20 +40,9 @@ local function GET_SHADER(name)
 	return SHADERS_VERSION:gsub("%.", "_") .. "_" .. name
 end
 
--- These are constants from common_rounded.hlsl file
-local C_RADIUS_X, C_RADIUS_Y, C_RADIUS_W, C_RADIUS_Z = "$c0_x", "$c0_y", "$c0_w", "$c0_z"
-
-local C_SIZE_W, C_SIZE_H = "$c1_x", "$c1_y"
-
-local C_POWER_PARAM = "$c1_z"
-local C_USE_TEXTURE = "$c1_w"
-local C_OUTLINE_THICKNESS = "$c2_x"
-local C_AA = "$c2_y"
---
-
 -- I know it exists in gmod, but I want to have math.min and math.max localized
 local function math_clamp(val, min, max)
-	return math_min(math_max(val, min), max)
+	return (math_min(math_max(val, min), max))
 end
 
 local NEW_FLAG; do
@@ -101,6 +90,8 @@ screenspace_general
 }
 ]==]
 
+local MATRIXES                             = {}
+
 local function create_shader_mat(name, opts)
 	assert(name and isstring(name), "create_shader_mat: tex must be a string")
 
@@ -118,20 +109,19 @@ local function create_shader_mat(name, opts)
 		key_values
 	)
 
+	MATRIXES[mat] = Matrix()
+
 	return mat
 end
 
 local ROUNDED_MAT = create_shader_mat("rounded", {
 	["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	[C_USE_TEXTURE] = 0, -- no texture
 })
-
 local ROUNDED_TEXTURE_MAT = create_shader_mat("rounded_texture", {
 	["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
 	["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
-	[C_USE_TEXTURE] = 1,          -- this indicates that we have a texture
 })
 
 local BLUR_H_MAT = create_shader_mat("blur_horizontal", {
@@ -167,8 +157,30 @@ local SHAPES = {
 	[SHAPE_IOS] = 4,
 }
 
-local SetMatFloat = ROUNDED_MAT.SetFloat
-local SetMatTexture = ROUNDED_MAT.SetTexture
+local MATERIAL_SetTexture = ROUNDED_MAT.SetTexture
+local MATERIAL_SetMatrix = ROUNDED_MAT.SetMatrix
+local MATRIX_SetUnpacked = Matrix().SetUnpacked
+
+local function SetParams(
+	mat,
+	tl, tr, bl, br,
+	w, h,
+	power,
+	use_texture,
+	outline_thickness,
+	aa
+)
+	local matrix = MATRIXES[mat]
+	MATRIX_SetUnpacked(
+		matrix,
+
+		bl, w, outline_thickness, 0,
+		br, h, aa, 0,
+		tr, power, 0, 0,
+		tl, use_texture, 0, 0
+	)
+	MATERIAL_SetMatrix(mat, "$viewprojmat", matrix)
+end
 
 local DEFAULT_DRAW_FLAGS = SHAPE_FIGMA
 
@@ -191,24 +203,27 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 
 	if texture then
 		mat = ROUNDED_TEXTURE_MAT
-		SetMatTexture(mat, "$basetexture", texture)
+		MATERIAL_SetTexture(mat, "$basetexture", texture)
 	end
-
-	SetMatFloat(mat, C_SIZE_W, w)
-	SetMatFloat(mat, C_SIZE_H, h)
 
 	-- Roundness
 	local max_rad = math_min(w, h) / 2
-	SetMatFloat(mat, C_RADIUS_W, bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_Z, bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_X, bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_Y, bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
 	--
 
-	SetMatFloat(mat, C_OUTLINE_THICKNESS, thickness or -1) -- no outline = -1
-
 	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-	SetMatFloat(mat, C_POWER_PARAM, shape_value or 2.2)
+
+	SetParams(
+		mat,
+		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
+		bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0,
+		bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0,
+		bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0,
+		w, h,
+		shape_value or 2.2,
+		texture and 1 or 0,
+		thickness or -1,
+		0
+	)
 
 	if col then
 		surface_SetDrawColor(col.r, col.g, col.b, col.a)
@@ -259,32 +274,44 @@ end
 
 local DRAW_SECOND_BLUR = false
 local USE_SHADOWS_BLUR = false
+local SHADOWS_AA = 0
 function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	if not flags then
 		flags = DEFAULT_DRAW_FLAGS
 	end
 
+	local aa = 0
 	local mat; if DRAW_SECOND_BLUR then
-		mat = USE_SHADOWS_BLUR and SHADOWS_BLUR_H_MAT or BLUR_H_MAT
+		if USE_SHADOWS_BLUR then
+			mat = SHADOWS_BLUR_V_MAT
+			aa = SHADOWS_AA
+		else
+			mat = BLUR_V_MAT
+		end
 	else
-		mat = USE_SHADOWS_BLUR and SHADOWS_BLUR_V_MAT or BLUR_V_MAT
+		if USE_SHADOWS_BLUR then
+			mat = SHADOWS_BLUR_H_MAT
+			aa = SHADOWS_AA
+		else
+			mat = BLUR_H_MAT
+		end
 	end
 
-	SetMatFloat(mat, C_SIZE_W, w)
-	SetMatFloat(mat, C_SIZE_H, h)
-
-	-- Roundness
 	local max_rad = math_min(w, h) / 2
-	SetMatFloat(mat, C_RADIUS_W, bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_Z, bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_X, bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_Y, bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
-	--
-
-	SetMatFloat(mat, C_OUTLINE_THICKNESS, thickness or -1) -- no outline = -1
-
 	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-	SetMatFloat(mat, C_POWER_PARAM, shape_value or 2.2)
+
+	SetParams(
+		mat,
+		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
+		bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0,
+		bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0,
+		bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0,
+		w, h,
+		shape_value or 2.2,
+		0,
+		thickness or -1,
+		aa
+	)
 
 	render_UpdateScreenEffectTexture() -- we need this otherwise anything that is being drawn before will not be drawn
 
@@ -326,30 +353,29 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 	--
 
 	local mat = SHADOWS_MAT
-	SetMatFloat(mat, C_SIZE_W, w)
-	SetMatFloat(mat, C_SIZE_H, h)
 
-	-- Roundness
 	local max_rad = math_min(w, h) / 2
-	SetMatFloat(mat, C_RADIUS_W, bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_Z, bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_X, bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0)
-	SetMatFloat(mat, C_RADIUS_Y, bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0)
-	--
-
-	SetMatFloat(mat, C_OUTLINE_THICKNESS, thickness or -1) -- no outline = -1
-	SetMatFloat(mat, C_AA, intensity)                   -- AA
-
 	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-	SetMatFloat(mat, C_POWER_PARAM, shape_value or 2.2)
+
+	SetParams(
+		mat,
+		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
+		bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0,
+		bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0,
+		bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0,
+		w, h,
+		shape_value or 2.2,
+		0,
+		thickness or -1,
+		intensity
+	)
 
 	-- if we are inside a panel, we need to draw outside of it
 	local old_clipping_state = DisableClipping(true)
 
 	if using_blur then
+		SHADOWS_AA = intensity
 		USE_SHADOWS_BLUR = true
-		SetMatFloat(SHADOWS_BLUR_H_MAT, C_AA, intensity) -- AA
-		SetMatFloat(SHADOWS_BLUR_V_MAT, C_AA, intensity) -- AA
 		RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 		USE_SHADOWS_BLUR = false
 	end

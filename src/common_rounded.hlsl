@@ -8,12 +8,14 @@
 
 #include "common.hlsl"
 
-#define RADIUS Constants0
-#define SIZE Constants1.xy
-#define POWER_PARAMETER Constants1.z
-#define USE_TEXTURE Constants1.w
-#define OUTLINE_THICKNESS Constants2.x
-#define AA Constants2.y // Anti-aliasing smoothness (pixels)
+// Thanks to svetov/jaffies for this hack, to be able to supply constants in two C calls from lua
+const float4x4 g_viewProjMatrix : register( c11 );
+#define RADIUS g_viewProjMatrix[0]
+#define SIZE g_viewProjMatrix[1].xy
+#define POWER_PARAMETER g_viewProjMatrix[1].z
+#define USE_TEXTURE g_viewProjMatrix[1].w
+#define OUTLINE_THICKNESS g_viewProjMatrix[2].x
+#define AA g_viewProjMatrix[2].y // Anti-aliasing smoothness (pixels)
 
 float length_custom(float2 vec) {
     float2 powered = pow(vec, POWER_PARAMETER);
@@ -51,8 +53,10 @@ float calculate_rounded_alpha(PS_INPUT i) {
     float2 screen_pos = i.uv.xy * SIZE;
     float2 rect_half_size = SIZE * 0.5;
 
+    float2 centered_pos = screen_pos - rect_half_size;
+
     // Compute outer SDF distance (original radii)
-    float dist_outer = rounded_box_sdf(screen_pos - rect_half_size, rect_half_size, RADIUS);
+    float dist_outer = rounded_box_sdf(centered_pos, rect_half_size, RADIUS);
     float aa_outer = blended_AA(dist_outer, screen_pos);
     if (OUTLINE_THICKNESS < 0)
         return aa_outer;
@@ -64,7 +68,7 @@ float calculate_rounded_alpha(PS_INPUT i) {
     // if (all(inner_half_size <= 0.0) && all(inner_radius <= 0.0))
     //     return alpha_outer; // Fallback to filled when outline is too thick
 
-    float dist_inner = rounded_box_sdf(screen_pos - rect_half_size, inner_half_size, inner_radius);
+    float dist_inner = rounded_box_sdf(centered_pos, inner_half_size, inner_radius);
     float aa_inner = blended_AA(dist_inner, screen_pos);
     return aa_outer * (1.0 - aa_inner);
 }
@@ -73,8 +77,10 @@ float calculate_smooth_rounded_alpha(PS_INPUT i) {
     float2 screen_pos = i.uv.xy * SIZE;
     float2 rect_half_size = SIZE * 0.5;
 
+    float2 centered_pos = screen_pos - rect_half_size;
+
     // Compute outer SDF distance (original radii)
-    float dist_outer = rounded_box_sdf(screen_pos - rect_half_size, rect_half_size, RADIUS);
+    float dist_outer = rounded_box_sdf(centered_pos, rect_half_size, RADIUS);
 
     float aa_outer = 1.0 - smoothstep(0.0, AA, dist_outer + AA);
     if (OUTLINE_THICKNESS < 0)
@@ -83,7 +89,7 @@ float calculate_smooth_rounded_alpha(PS_INPUT i) {
     // Adjust inner radii and size for outline
     float2 inner_half_size = max(rect_half_size - OUTLINE_THICKNESS, 0.0);
     float4 inner_radius = max(RADIUS - OUTLINE_THICKNESS, 0.0);
-    float dist_inner = rounded_box_sdf(screen_pos - rect_half_size, inner_half_size, inner_radius);
+    float dist_inner = rounded_box_sdf(centered_pos, inner_half_size, inner_radius);
 
     float aa_inner = 1.0 - smoothstep(0.0, AA, dist_inner + AA);
     return aa_outer * (1.0 - aa_inner);
