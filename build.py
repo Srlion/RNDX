@@ -49,12 +49,7 @@ class GMAWriter:
         return buffer.getvalue()
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python script.py <version>")
-        sys.exit(1)
-
-    version = sys.argv[1]
-
+    version = str(int(time.time()))
     writer = GMAWriter(f"RNDX_{version}", 12345678901234567)
 
     # Directory containing the shaders to be compiled.
@@ -68,9 +63,8 @@ def main():
         if os.path.isfile(file_path):
             with open(file_path, "rb") as file:
                 content = file.read()
-            # Prefix the filename with the version string. Eg. rndx_rounded_psxx.hlsl -> 1_0_rndx_rounded_psxx.hlsl
-            version_underscore = version.replace(".", "_")
-            new_filename = f"shaders/fxc/{version_underscore}_{filename}"
+            # Prefix the filename with the Unix timestamp version.
+            new_filename = f"shaders/fxc/{version}_{filename}"
             writer.add_file(new_filename, content)
 
     binary_data = writer.get_data()

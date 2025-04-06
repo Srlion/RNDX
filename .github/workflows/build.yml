@@ -11,22 +11,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bump Version
-        id: bump_version
-        uses: Srlion/float-version-semantic@d71f36b2a2097a19d537d137e99eed9177ec60bd
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build
         shell: pwsh
         run: |
           .\build_shaders.bat
-          python build.py ${{ steps.bump_version.outputs.new_tag }}
+          python build.py
           copy src/rndx.lua C:\rndx.lua
+
+      - name: Set Unix Timestamp
+        id: time
+        shell: pwsh
+        run: |
+          # Get the current Unix time
+          $timestamp = Get-Date -UFormat %s
+          # Save the timestamp as an output variable
+          echo "timestamp=$timestamp" >> $env:GITHUB_OUTPUT
 
       - name: Release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.bump_version.outputs.new_tag }}
+          tag: ${{ steps.time.outputs.timestamp }}
           allowUpdates: true
           artifacts: C:\rndx.lua
