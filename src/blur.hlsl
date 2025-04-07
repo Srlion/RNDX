@@ -54,7 +54,7 @@ float4 blur(float2 uv)
     {
         float2 offset = bilinearOffsets[i] * sLOD;
         float weight = bilinearWeights[i];
-        float4 sample = tex2Dlod(TexBase, float4(uv + TexBaseSize * offset, 0, LOD));
+        float4 sample = tex2Dlod(TexBase, float4(uv + Tex1Size * offset, 0, LOD));
         colorAccum += sample * weight;
         weightAccum += weight;
     }

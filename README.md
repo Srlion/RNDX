@@ -116,8 +116,9 @@ end)
 #### Blur
 
 150 Calls
+`x y w h` of `10, 10, 700, 700`
 
-- `Current RNDX`: 105 fps
+- `Current RNDX`: 125 fps
 - `Previous RNDX`: 73 fps
 - https://pastebin.com/urx4Qvez : 59 fps
 

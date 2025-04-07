@@ -18,7 +18,7 @@ local surface_SetDrawColor = surface.SetDrawColor
 local surface_SetMaterial = surface.SetMaterial
 local surface_DrawTexturedRectUV = surface.DrawTexturedRectUV
 local surface_DrawTexturedRect = surface.DrawTexturedRect
-local render_UpdateScreenEffectTexture = render.UpdateScreenEffectTexture
+local render_UpdatePowerOfTwoTexture = render.UpdatePowerOfTwoTexture
 local math_min = math.min
 local math_max = math.max
 local DisableClipping = DisableClipping
@@ -127,7 +127,8 @@ local ROUNDED_TEXTURE_MAT = create_shader_mat("rounded_texture", {
 local ROUNDED_BLUR_MAT = create_shader_mat("blur_horizontal", {
 	["$pixshader"] = GET_SHADER("rndx_rounded_blur_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = "_rt_FullFrameFB",
+	["$basetexture"] = "_rt_PowerOfTwoFB",
+	["$texture1"] = "_rt_FullFrameFB",
 })
 
 local SHADOWS_MAT = create_shader_mat("rounded_shadows", {
@@ -138,7 +139,8 @@ local SHADOWS_MAT = create_shader_mat("rounded_shadows", {
 local SHADOWS_BLUR_MAT = create_shader_mat("shadows_blur_horizontal", {
 	["$pixshader"] = GET_SHADER("rndx_shadows_blur_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = "_rt_FullFrameFB",
+	["$basetexture"] = "_rt_PowerOfTwoFB",
+	["$texture1"] = "_rt_FullFrameFB",
 })
 
 local SHAPES = {
@@ -284,7 +286,7 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 		aa
 	)
 
-	render_UpdateScreenEffectTexture() -- we need this otherwise anything that is being drawn before will not be drawn
+	render_UpdatePowerOfTwoTexture() -- we need this otherwise anything that is being drawn before will not be drawn
 
 	surface_SetDrawColor(255, 255, 255, 255)
 	surface_SetMaterial(mat)
