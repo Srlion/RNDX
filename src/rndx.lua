@@ -18,10 +18,19 @@ local surface_SetDrawColor = surface.SetDrawColor
 local surface_SetMaterial = surface.SetMaterial
 local surface_DrawTexturedRectUV = surface.DrawTexturedRectUV
 local surface_DrawTexturedRect = surface.DrawTexturedRect
-local render_UpdatePowerOfTwoTexture = render.UpdatePowerOfTwoTexture
+local render_CopyRenderTargetToTexture = render.CopyRenderTargetToTexture
 local math_min = math.min
 local math_max = math.max
 local DisableClipping = DisableClipping
+
+local BLUR_RT = GetRenderTargetEx("DownsampledSceneRT" .. SysTime(),
+	512, 512,
+	RT_SIZE_LITERAL,
+	MATERIAL_RT_DEPTH_SEPARATE,
+	bit.bor(2, 256, 4, 8 --[[4, 8 is clamp_s + clamp-t]]),
+	0,
+	IMAGE_FORMAT_BGRA8888
+)
 
 local SHADERS_VERSION = "SHADERS_VERSION_PLACEHOLDER"
 local SHADERS_GMA = [========[SHADERS_GMA_PLACEHOLDER]========]
@@ -87,6 +96,9 @@ screenspace_general
 	$alpha_blend               1 // for AA
 	$linearwrite               1 // to disable broken gamma correction for colors
 	$linearread_basetexture    1 // to disable broken gamma correction for textures
+	$linearread_texture1       1 // to disable broken gamma correction for textures
+	$linearread_texture2       1 // to disable broken gamma correction for textures
+	$linearread_texture3       1 // to disable broken gamma correction for textures
 }
 ]==]
 
@@ -124,10 +136,11 @@ local ROUNDED_TEXTURE_MAT = create_shader_mat("rounded_texture", {
 	["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
 })
 
+local BLUR_VERTICAL = "$c0_x"
 local ROUNDED_BLUR_MAT = create_shader_mat("blur_horizontal", {
 	["$pixshader"] = GET_SHADER("rndx_rounded_blur_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = "_rt_PowerOfTwoFB",
+	["$basetexture"] = BLUR_RT:GetName(),
 	["$texture1"] = "_rt_FullFrameFB",
 })
 
@@ -151,6 +164,7 @@ local SHAPES = {
 
 local MATERIAL_SetTexture = ROUNDED_MAT.SetTexture
 local MATERIAL_SetMatrix = ROUNDED_MAT.SetMatrix
+local MATERIAL_SetFloat = ROUNDED_MAT.SetFloat
 local MATRIX_SetUnpacked = Matrix().SetUnpacked
 
 local function SetParams(
@@ -286,10 +300,15 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 		aa
 	)
 
-	render_UpdatePowerOfTwoTexture() -- we need this otherwise anything that is being drawn before will not be drawn
-
 	surface_SetDrawColor(255, 255, 255, 255)
 	surface_SetMaterial(mat)
+
+	render_CopyRenderTargetToTexture(BLUR_RT)
+	MATERIAL_SetFloat(mat, BLUR_VERTICAL, 0)
+	surface_DrawTexturedRect(x, y, w, h)
+
+	render_CopyRenderTargetToTexture(BLUR_RT)
+	MATERIAL_SetFloat(mat, BLUR_VERTICAL, 1)
 	surface_DrawTexturedRect(x, y, w, h)
 end
 

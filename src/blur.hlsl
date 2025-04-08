@@ -1,63 +1,28 @@
-// https://www.shadertoy.com/view/ltScRG and thanks to Jaffies!
+// The MIT License
+// Copyright © 2015 Inigo Quilez
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// https://www.shadertoy.com/view/Xd33Rf
 #include "common_rounded.hlsl"
 
-static const int samples = 32;
-static const int LOD = 3;
-static const int sLOD = 1 << LOD;
-static const float sigma = float(samples * 2) * 0.25;
-static const float gaussian_denom = 1.0 / (6.28 * sigma * sigma);
+static const float w[8] = {0.026109, 0.034202, 0.043219, 0.052683, 0.061948, 0.070266, 0.076883, 0.081149};
+static const float o[8] = {15.5, 13.5, 11.5, 9.5, 7.5, 5.5, 3.5, 1.5};
 
-static const float2 bilinearOffsets[32] = {
-    float2(0.25, 0.25),  float2(-0.25, 0.25),
-    float2(0.25, -0.25), float2(-0.25, -0.25),
-    float2(0.75, 0.75),  float2(-0.75, 0.75),
-    float2(0.75, -0.75), float2(-0.75, -0.75),
-    float2(1.25, 1.25),  float2(-1.25, 1.25),
-    float2(1.25, -1.25), float2(-1.25, -1.25),
-    float2(0.5, 0.0),    float2(0.0, 0.5),
-    float2(-0.5, 0.0),   float2(0.0, -0.5),
-
-    float2(1.75, 1.75),  float2(-1.75, 1.75),
-    float2(1.75, -1.75), float2(-1.75, -1.75),
-    float2(2.25, 2.25),  float2(-2.25, 2.25),
-    float2(2.25, -2.25), float2(-2.25, -2.25),
-    float2(1.0, 0.0),    float2(0.0, 1.0),
-    float2(-1.0, 0.0),   float2(0.0, -1.0),
-    float2(1.5, 0.5),    float2(-1.5, 0.5),
-    float2(1.5, -0.5),   float2(-1.5, -0.5)
-};
-
-static const float bilinearWeights[32] = {
-    0.38, 0.38, 0.38, 0.38,
-    0.18, 0.18, 0.18, 0.18,
-    0.06, 0.06, 0.06, 0.06,
-    0.12, 0.12, 0.12, 0.12,
-
-    0.04, 0.04, 0.04, 0.04,
-    0.02, 0.02, 0.02, 0.02,
-    0.16, 0.16, 0.16, 0.16,
-    0.08, 0.08, 0.08, 0.08
-};
-
-float gaussian(float2 i)
+float3 blur(float2 uv, float vertical)
 {
-    i /= sigma;
-    return exp(-0.5 * dot(i, i)) * gaussian_denom;
-}
+    float2 dir = vertical ? float2(0, 1) : float2(1, 0);
+    float3 blr = float3(0.0, 0.0, 0.0);
 
-float4 blur(float2 uv)
-{
-    float4 colorAccum = 0;
-    float weightAccum = 0.0;
-
-    [unroll] for (int i = 0; i < samples; i++)
-    {
-        float2 offset = bilinearOffsets[i] * sLOD;
-        float weight = bilinearWeights[i];
-        float4 sample = tex2Dlod(TexBase, float4(uv + Tex1Size * offset, 0, LOD));
-        colorAccum += sample * weight;
-        weightAccum += weight;
+    [unroll] for(int i = 0; i < 8; i++) {
+        blr += w[i] * tex2D(TexBase, uv - Tex1Size * (o[i] * dir)).rgb;
     }
 
-    return colorAccum / weightAccum;
+    blr += 0.041312 * tex2D(TexBase, uv).rgb;
+
+    [unroll] for(int j = 7; j >= 0; j--) {
+        blr += w[j] * tex2D(TexBase, uv + Tex1Size * (o[j] * dir)).rgb;
+    }
+
+    blr /= 0.93423;
+
+    return blr;
 }
