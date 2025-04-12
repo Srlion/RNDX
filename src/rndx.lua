@@ -188,7 +188,7 @@ local function SetParams(
 	MATERIAL_SetMatrix(mat, "$viewprojmat", matrix)
 end
 
-local MANUALCOLOR = NEW_FLAG()
+local MANUAL_COLOR = NEW_FLAG()
 local DEFAULT_DRAW_FLAGS = SHAPE_FIGMA
 
 local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thickness)
@@ -225,7 +225,7 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 		0
 	)
 
-	if bit_band(flags, MANUALCOLOR) == 0 then
+	if bit_band(flags, MANUAL_COLOR) == 0 then
 		if col then
 			surface_SetDrawColor(col.r, col.g, col.b, col.a)
 		else
@@ -368,7 +368,7 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		USE_SHADOWS_BLUR = false
 	end
 
-	if bit_band(flags, MANUALCOLOR) == 0 then
+	if bit_band(flags, MANUAL_COLOR) == 0 then
 		if col then
 			surface_SetDrawColor(col.r, col.g, col.b, col.a)
 		else
@@ -399,7 +399,7 @@ RNDX.SHAPE_FIGMA = SHAPE_FIGMA
 RNDX.SHAPE_IOS = SHAPE_IOS
 
 RNDX.BLUR = BLUR
-RNDX.MANUALCOLOR = MANUALCOLOR
+RNDX.MANUAL_COLOR = MANUAL_COLOR
 
 function RNDX.SetFlag(flags, flag, bool)
 	flag = RNDX[flag] or flag
