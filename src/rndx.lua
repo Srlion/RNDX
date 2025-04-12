@@ -372,7 +372,7 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		if col then
 			surface_SetDrawColor(col.r, col.g, col.b, col.a)
 		else
-			surface_SetDrawColor(255, 255, 255, 255)
+			surface_SetDrawColor(0, 0, 0, 255)
 		end
 	end
 
