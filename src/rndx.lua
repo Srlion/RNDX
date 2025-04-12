@@ -224,8 +224,10 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 		0
 	)
 
-	if col then
-		surface_SetDrawColor(col.r, col.g, col.b, col.a)
+	if col ~= nil then
+		if col ~= false then
+			surface_SetDrawColor(col.r, col.g, col.b, col.a)
+		end
 	else
 		surface_SetDrawColor(255, 255, 255, 255)
 	end
@@ -364,10 +366,12 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		USE_SHADOWS_BLUR = false
 	end
 
-	if col then
-		surface_SetDrawColor(col.r, col.g, col.b, col.a)
+	if col ~= nil then
+		if col ~= false then
+			surface_SetDrawColor(col.r, col.g, col.b, col.a)
+		end
 	else
-		surface_SetDrawColor(0, 0, 0, 255)
+		surface_SetDrawColor(255, 255, 255, 255)
 	end
 	surface_SetMaterial(mat)
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
