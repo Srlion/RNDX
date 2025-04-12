@@ -188,6 +188,7 @@ local function SetParams(
 	MATERIAL_SetMatrix(mat, "$viewprojmat", matrix)
 end
 
+local MANUALCOLOR = NEW_FLAG()
 local DEFAULT_DRAW_FLAGS = SHAPE_FIGMA
 
 local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thickness)
@@ -224,13 +225,14 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 		0
 	)
 
-	if col ~= nil then
-		if col ~= false then
+	if bit_band(flags, MANUALCOLOR) == 0 then
+		if col then
 			surface_SetDrawColor(col.r, col.g, col.b, col.a)
+		else
+			surface_SetDrawColor(255, 255, 255, 255)
 		end
-	else
-		surface_SetDrawColor(255, 255, 255, 255)
 	end
+
 	surface_SetMaterial(mat)
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
 	-- fixes setting $basetexture to ""(none) not working correctly
@@ -366,13 +368,14 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		USE_SHADOWS_BLUR = false
 	end
 
-	if col ~= nil then
-		if col ~= false then
+	if bit_band(flags, MANUALCOLOR) == 0 then
+		if col then
 			surface_SetDrawColor(col.r, col.g, col.b, col.a)
+		else
+			surface_SetDrawColor(255, 255, 255, 255)
 		end
-	else
-		surface_SetDrawColor(0, 0, 0, 255)
 	end
+
 	surface_SetMaterial(mat)
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
 	-- fixes having no $basetexture causing uv to be broken
@@ -396,6 +399,7 @@ RNDX.SHAPE_FIGMA = SHAPE_FIGMA
 RNDX.SHAPE_IOS = SHAPE_IOS
 
 RNDX.BLUR = BLUR
+RNDX.MANUALCOLOR = MANUALCOLOR
 
 function RNDX.SetFlag(flags, flag, bool)
 	flag = RNDX[flag] or flag
