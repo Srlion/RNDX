@@ -80,10 +80,6 @@ end)
 
 ### `RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)`
 
-### `RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)`
-
-### `RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)`
-
 ---
 
 ## 🚀 Why Choose RNDX Over Alternatives?
