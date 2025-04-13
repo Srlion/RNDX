@@ -50,6 +50,7 @@ end)
 - **`RNDX.NO_BL`**: Disables bottom-left corner.
 - **`RNDX.NO_BR`**: Disables bottom-right corner.
 - **`RNDX.BLUR`**: Use blur for the shape.
+- **`RNDX.MANUAL_COLOR`**: Allows setting the color via `surface.SetDrawColor`.
 
 ---
 
@@ -78,6 +79,10 @@ end)
 ### `RNDX.DrawCircleTexture(x, y, r, col, texture, flags)`
 
 ### `RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)`
+
+### `RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)`
+
+### `RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)`
 
 ---
 
