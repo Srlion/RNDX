@@ -50,6 +50,7 @@ end)
 - **`RNDX.NO_BL`**: Disables bottom-left corner.
 - **`RNDX.NO_BR`**: Disables bottom-right corner.
 - **`RNDX.BLUR`**: Use blur for the shape.
+- **`RNDX.MANUAL_COLOR`**: Allows setting the color via `surface.SetDrawColor`.
 
 ---
 
