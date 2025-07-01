@@ -321,11 +321,20 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		return
 	end
 
+	-- if we are inside a panel, we need to draw outside of it
+	local old_clipping_state = DisableClipping(true)
+
 	if not flags then
 		flags = DEFAULT_DRAW_FLAGS
 	end
 
 	local using_blur = bit_band(flags, BLUR) ~= 0
+	if using_blur then
+		SHADOWS_AA = intensity
+		USE_SHADOWS_BLUR = true
+		RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
+		USE_SHADOWS_BLUR = false
+	end
 
 	-- Shadows are a bit bigger than the actual box
 	spread = spread or 30
@@ -357,16 +366,6 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		thickness or -1,
 		intensity
 	)
-
-	-- if we are inside a panel, we need to draw outside of it
-	local old_clipping_state = DisableClipping(true)
-
-	if using_blur then
-		SHADOWS_AA = intensity
-		USE_SHADOWS_BLUR = true
-		RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
-		USE_SHADOWS_BLUR = false
-	end
 
 	if bit_band(flags, MANUAL_COLOR) == 0 then
 		if col then
