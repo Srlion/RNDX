@@ -23,15 +23,6 @@ local math_min = math.min
 local math_max = math.max
 local DisableClipping = DisableClipping
 
-local BLUR_RT = GetRenderTargetEx("DownsampledSceneRT" .. SysTime(),
-	512, 512,
-	RT_SIZE_LITERAL,
-	MATERIAL_RT_DEPTH_SEPARATE,
-	bit.bor(2, 256, 4, 8 --[[4, 8 is clamp_s + clamp-t]]),
-	0,
-	IMAGE_FORMAT_BGRA8888
-)
-
 local SHADERS_VERSION = "SHADERS_VERSION_PLACEHOLDER"
 local SHADERS_GMA = [========[SHADERS_GMA_PLACEHOLDER]========]
 do
@@ -48,6 +39,15 @@ end
 local function GET_SHADER(name)
 	return SHADERS_VERSION:gsub("%.", "_") .. "_" .. name
 end
+
+local BLUR_RT = GetRenderTargetEx("RNDX" .. SHADERS_VERSION .. SysTime(),
+	512, 512,
+	RT_SIZE_LITERAL,
+	MATERIAL_RT_DEPTH_SEPARATE,
+	bit.bor(2, 256, 4, 8 --[[4, 8 is clamp_s + clamp-t]]),
+	0,
+	IMAGE_FORMAT_BGRA8888
+)
 
 -- I know it exists in gmod, but I want to have math.min and math.max localized
 local function math_clamp(val, min, max)
