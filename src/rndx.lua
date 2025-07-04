@@ -202,8 +202,7 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 
 	local using_blur = bit_band(flags, BLUR) ~= 0
 	if using_blur then
-		RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
-		return
+		return RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	end
 
 	local mat = ROUNDED_MAT; if texture then
@@ -236,42 +235,42 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 	surface_SetMaterial(mat)
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
 	-- fixes setting $basetexture to ""(none) not working correctly
-	surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
+	return surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
 end
 
 function RNDX.Draw(r, x, y, w, h, col, flags)
-	draw_rounded(x, y, w, h, col, flags, r, r, r, r)
+	return draw_rounded(x, y, w, h, col, flags, r, r, r, r)
 end
 
 function RNDX.DrawOutlined(r, x, y, w, h, col, thickness, flags)
-	draw_rounded(x, y, w, h, col, flags, r, r, r, r, nil, thickness or 1)
+	return draw_rounded(x, y, w, h, col, flags, r, r, r, r, nil, thickness or 1)
 end
 
 function RNDX.DrawTexture(r, x, y, w, h, col, texture, flags)
-	draw_rounded(x, y, w, h, col, flags, r, r, r, r, texture)
+	return draw_rounded(x, y, w, h, col, flags, r, r, r, r, texture)
 end
 
 function RNDX.DrawMaterial(r, x, y, w, h, col, mat, flags)
 	local tex = mat:GetTexture("$basetexture")
 	if tex then
-		RNDX.DrawTexture(r, x, y, w, h, col, tex, flags)
+		return RNDX.DrawTexture(r, x, y, w, h, col, tex, flags)
 	end
 end
 
 function RNDX.DrawCircle(x, y, r, col, flags)
-	RNDX.Draw(r / 2, x - r / 2, y - r / 2, r, r, col, (flags or 0) + SHAPE_CIRCLE)
+	return RNDX.Draw(r / 2, x - r / 2, y - r / 2, r, r, col, (flags or 0) + SHAPE_CIRCLE)
 end
 
 function RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)
-	RNDX.DrawOutlined(r / 2, x - r / 2, y - r / 2, r, r, col, thickness, (flags or 0) + SHAPE_CIRCLE)
+	return RNDX.DrawOutlined(r / 2, x - r / 2, y - r / 2, r, r, col, thickness, (flags or 0) + SHAPE_CIRCLE)
 end
 
 function RNDX.DrawCircleTexture(x, y, r, col, texture, flags)
-	RNDX.DrawTexture(r / 2, x - r / 2, y - r / 2, r, r, col, texture, (flags or 0) + SHAPE_CIRCLE)
+	return RNDX.DrawTexture(r / 2, x - r / 2, y - r / 2, r, r, col, texture, (flags or 0) + SHAPE_CIRCLE)
 end
 
 function RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)
-	RNDX.DrawMaterial(r / 2, x - r / 2, y - r / 2, r, r, col, mat, (flags or 0) + SHAPE_CIRCLE)
+	return RNDX.DrawMaterial(r / 2, x - r / 2, y - r / 2, r, r, col, mat, (flags or 0) + SHAPE_CIRCLE)
 end
 
 local USE_SHADOWS_BLUR = false
@@ -313,7 +312,7 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 
 	render_CopyRenderTargetToTexture(BLUR_RT)
 	MATERIAL_SetFloat(mat, BLUR_VERTICAL, 1)
-	surface_DrawTexturedRect(x, y, w, h)
+	return surface_DrawTexturedRect(x, y, w, h)
 end
 
 function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)
@@ -380,11 +379,11 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 	-- fixes having no $basetexture causing uv to be broken
 	surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
 
-	DisableClipping(old_clipping_state)
+	return DisableClipping(old_clipping_state)
 end
 
 function RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)
-	RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
+	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
 end
 
 -- Flags
