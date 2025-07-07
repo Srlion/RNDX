@@ -16,6 +16,7 @@ const float4x4 g_viewProjMatrix : register( c11 );
 #define USE_TEXTURE g_viewProjMatrix[1].w
 #define OUTLINE_THICKNESS g_viewProjMatrix[2].x
 #define AA g_viewProjMatrix[2].y // Anti-aliasing smoothness (pixels)
+#define BLUR_INTENSITY g_viewProjMatrix[2].z // Blur intensity
 #define BLUR_VERTICAL Constants0.x
 
 float length_custom(float2 vec) {

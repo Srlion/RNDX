@@ -174,7 +174,8 @@ local function SetParams(
 	power,
 	use_texture,
 	outline_thickness,
-	aa
+	aa,
+	blur_intensity
 )
 	local matrix = MATRIXES[mat]
 	MATRIX_SetUnpacked(
@@ -182,7 +183,7 @@ local function SetParams(
 
 		bl, w, outline_thickness, 0,
 		br, h, aa, 0,
-		tr, power, 0, 0,
+		tr, power, blur_intensity or 1.0, 0,
 		tl, use_texture, 0, 0
 	)
 	MATERIAL_SetMatrix(mat, "$viewprojmat", matrix)
