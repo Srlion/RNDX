@@ -386,6 +386,10 @@ function RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)
 	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
 end
 
+function RNDX.DrawShadowsOutlined(r, x, y, w, h, col, thickness, spread, intensity, flags)
+	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity, thickness or 1)
+end
+
 -- Flags
 RNDX.NO_TL = NO_TL
 RNDX.NO_TR = NO_TR
