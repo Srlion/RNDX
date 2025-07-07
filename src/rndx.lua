@@ -22,6 +22,7 @@ local render_CopyRenderTargetToTexture = render.CopyRenderTargetToTexture
 local math_min = math.min
 local math_max = math.max
 local DisableClipping = DisableClipping
+local type = type
 
 local SHADERS_VERSION = "SHADERS_VERSION_PLACEHOLDER"
 local SHADERS_GMA = [========[SHADERS_GMA_PLACEHOLDER]========]
@@ -167,26 +168,44 @@ local MATERIAL_SetMatrix = ROUNDED_MAT.SetMatrix
 local MATERIAL_SetFloat = ROUNDED_MAT.SetFloat
 local MATRIX_SetUnpacked = Matrix().SetUnpacked
 
-local function SetParams(
-	mat,
-	tl, tr, bl, br,
-	w, h,
-	power,
-	use_texture,
-	outline_thickness,
-	aa,
-	blur_intensity
-)
-	local matrix = MATRIXES[mat]
+local MAT
+local X, Y, W, H
+local TL, TR, BL, BR
+local TEXTURE
+local USING_BLUR, BLUR_INTENSITY
+local COL_R, COL_G, COL_B, COL_A
+local SHAPE, OUTLINE_THICKNESS, AA, BLUR_INTENSITY
+local function RESET_PARAMS()
+	MAT = nil
+	X, Y, W, H = 0, 0, 0, 0
+	TL, TR, BL, BR = 0, 0, 0, 0
+	TEXTURE = nil
+	USING_BLUR, BLUR_INTENSITY = false, 1.0
+	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
+	SHAPE, OUTLINE_THICKNESS, AA = SHAPES[SHAPE_FIGMA], -1, 0
+end
+
+local function SetupDraw()
+	local max_rad = math_min(W, H) / 2
+	TL, TR, BL, BR = math_clamp(TL, 0, max_rad), math_clamp(TR, 0, max_rad), math_clamp(BL, 0, max_rad),
+		math_clamp(BR, 0, max_rad)
+
+	local matrix = MATRIXES[MAT]
 	MATRIX_SetUnpacked(
 		matrix,
 
-		bl, w, outline_thickness, 0,
-		br, h, aa, 0,
-		tr, power, blur_intensity or 1.0, 0,
-		tl, use_texture, 0, 0
+		BL, W, OUTLINE_THICKNESS or -1, 0,
+		BR, H, AA, 0,
+		TR, SHAPE, BLUR_INTENSITY or 1.0, 0,
+		TL, TEXTURE and 1 or 0, 0, 0
 	)
-	MATERIAL_SetMatrix(mat, "$viewprojmat", matrix)
+	MATERIAL_SetMatrix(MAT, "$viewprojmat", matrix)
+
+	if COL_R then
+		surface_SetDrawColor(COL_R, COL_G, COL_B, COL_A)
+	end
+
+	surface_SetMaterial(MAT)
 end
 
 local MANUAL_COLOR = NEW_FLAG()
@@ -197,6 +216,8 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 		return
 	end
 
+	RESET_PARAMS()
+
 	if not flags then
 		flags = DEFAULT_DRAW_FLAGS
 	end
@@ -206,34 +227,30 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 		return RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	end
 
-	local mat = ROUNDED_MAT; if texture then
-		mat = ROUNDED_TEXTURE_MAT
-		MATERIAL_SetTexture(mat, "$basetexture", texture)
-	end
-	local max_rad = math_min(w, h) / 2
-	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-	SetParams(
-		mat,
-		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
-		bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0,
-		bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0,
-		bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0,
-		w, h,
-		shape_value or 2.2,
-		texture and 1 or 0,
-		thickness or -1,
-		0
-	)
-
-	if bit_band(flags, MANUAL_COLOR) == 0 then
-		if col then
-			surface_SetDrawColor(col.r, col.g, col.b, col.a)
-		else
-			surface_SetDrawColor(255, 255, 255, 255)
-		end
+	MAT = ROUNDED_MAT; if texture then
+		MAT = ROUNDED_TEXTURE_MAT
+		MATERIAL_SetTexture(MAT, "$basetexture", texture)
+		TEXTURE = texture
 	end
 
-	surface_SetMaterial(mat)
+	W, H = w, h
+	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
+		bit_band(flags, NO_TR) == 0 and tr or 0,
+		bit_band(flags, NO_BL) == 0 and bl or 0,
+		bit_band(flags, NO_BR) == 0 and br or 0
+	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[SHAPE_FIGMA]
+	OUTLINE_THICKNESS = thickness
+
+	if bit_band(flags, MANUAL_COLOR) ~= 0 then
+		COL_R = nil
+	elseif col then
+		COL_R, COL_G, COL_B, COL_A = col.r, col.g, col.b, col.a
+	else
+		COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
+	end
+
+	SetupDraw()
+
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
 	-- fixes setting $basetexture to ""(none) not working correctly
 	return surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
@@ -277,42 +294,37 @@ end
 local USE_SHADOWS_BLUR = false
 local SHADOWS_AA = 0
 function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
+	RESET_PARAMS()
+
 	if not flags then
 		flags = DEFAULT_DRAW_FLAGS
 	end
 
-	local aa = 0
-	local mat; if USE_SHADOWS_BLUR then
-		mat = SHADOWS_BLUR_MAT
-		aa = SHADOWS_AA
+	if USE_SHADOWS_BLUR then
+		MAT = SHADOWS_BLUR_MAT
+		AA = SHADOWS_AA
 	else
-		mat = ROUNDED_BLUR_MAT
+		MAT = ROUNDED_BLUR_MAT
 	end
 
-	local max_rad = math_min(w, h) / 2
-	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-	SetParams(
-		mat,
-		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
-		bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0,
-		bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0,
-		bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0,
-		w, h,
-		shape_value or 2.2,
-		0,
-		thickness or -1,
-		aa
-	)
+	W, H = w, h
+	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
+		bit_band(flags, NO_TR) == 0 and tr or 0,
+		bit_band(flags, NO_BL) == 0 and bl or 0,
+		bit_band(flags, NO_BR) == 0 and br or 0
+	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[SHAPE_FIGMA]
+	OUTLINE_THICKNESS = thickness
 
-	surface_SetDrawColor(255, 255, 255, 255)
-	surface_SetMaterial(mat)
+	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
+
+	SetupDraw()
 
 	render_CopyRenderTargetToTexture(BLUR_RT)
-	MATERIAL_SetFloat(mat, BLUR_VERTICAL, 0)
+	MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 0)
 	surface_DrawTexturedRect(x, y, w, h)
 
 	render_CopyRenderTargetToTexture(BLUR_RT)
-	MATERIAL_SetFloat(mat, BLUR_VERTICAL, 1)
+	MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 1)
 	return surface_DrawTexturedRect(x, y, w, h)
 end
 
@@ -336,6 +348,8 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		USE_SHADOWS_BLUR = false
 	end
 
+	RESET_PARAMS()
+
 	-- Shadows are a bit bigger than the actual box
 	spread = spread or 30
 	intensity = intensity or spread * 1.2
@@ -351,31 +365,27 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 	br = br + (spread * 2)
 	--
 
-	local mat = SHADOWS_MAT
-	local max_rad = math_min(w, h) / 2
-	local shape_value = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)]
-	SetParams(
-		mat,
-		bit_band(flags, NO_TL) == 0 and math_clamp(tl, 0, max_rad) or 0,
-		bit_band(flags, NO_TR) == 0 and math_clamp(tr, 0, max_rad) or 0,
-		bit_band(flags, NO_BL) == 0 and math_clamp(bl, 0, max_rad) or 0,
-		bit_band(flags, NO_BR) == 0 and math_clamp(br, 0, max_rad) or 0,
-		w, h,
-		shape_value or 2.2,
-		0,
-		thickness or -1,
-		intensity
-	)
+	MAT = SHADOWS_MAT
 
-	if bit_band(flags, MANUAL_COLOR) == 0 then
-		if col then
-			surface_SetDrawColor(col.r, col.g, col.b, col.a)
-		else
-			surface_SetDrawColor(0, 0, 0, 255)
-		end
+	W, H = w, h
+	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
+		bit_band(flags, NO_TR) == 0 and tr or 0,
+		bit_band(flags, NO_BL) == 0 and bl or 0,
+		bit_band(flags, NO_BR) == 0 and br or 0
+	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[SHAPE_FIGMA]
+	OUTLINE_THICKNESS = thickness
+
+	AA = intensity
+
+	if bit_band(flags, MANUAL_COLOR) ~= 0 then
+		COL_R = nil
+	elseif col then
+		COL_R, COL_G, COL_B, COL_A = col.r, col.g, col.b, col.a
+	else
+		COL_R, COL_G, COL_B, COL_A = 0, 0, 0, 255
 	end
 
-	surface_SetMaterial(mat)
+	SetupDraw()
 	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
 	-- fixes having no $basetexture causing uv to be broken
 	surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
@@ -390,6 +400,119 @@ end
 function RNDX.DrawShadowsOutlined(r, x, y, w, h, col, thickness, spread, intensity, flags)
 	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity, thickness or 1)
 end
+
+local BASE_FUNCS = {
+	Rad = function(self, rad)
+		TL, TR, BL, BR = rad, rad, rad, rad
+		return self
+	end,
+	Radii = function(self, tl, tr, bl, br)
+		TL, TR, BL, BR = tl or 0, tr or 0, bl or 0, br or 0
+		return self
+	end,
+	Texture = function(self, texture)
+		TEXTURE = texture
+		return self
+	end,
+	Material = function(self, mat)
+		local tex = mat:GetTexture("$basetexture")
+		if tex then
+			TEXTURE = tex
+		end
+		return self
+	end,
+	Outline = function(self, thickness)
+		OUTLINE_THICKNESS = thickness
+		return self
+	end,
+	Shape = function(self, shape)
+		SHAPE = SHAPES[shape] or 2.2
+		return self
+	end,
+	Color = function(self, col_or_r, g, b, a)
+		if type(col_or_r) == "number" then
+			COL_R, COL_G, COL_B, COL_A = col_or_r, g or 255, b or 255, a or 255
+		else
+			COL_R, COL_G, COL_B, COL_A = col_or_r.r, col_or_r.g, col_or_r.b, col_or_r.a
+		end
+		return self
+	end,
+	Blur = function(self, intensity)
+		if not intensity then
+			intensity = 1.0
+		end
+		intensity = math_max(intensity, 0)
+		USING_BLUR, BLUR_INTENSITY = true, intensity
+		return self
+	end,
+}
+
+local RECT = {
+	Rad = BASE_FUNCS.Rad,
+	Radii = BASE_FUNCS.Radii,
+	Texture = BASE_FUNCS.Texture,
+	Material = BASE_FUNCS.Material,
+	Outline = BASE_FUNCS.Outline,
+	Shape = BASE_FUNCS.Shape,
+	Color = BASE_FUNCS.Color,
+	Blur = BASE_FUNCS.Blur,
+
+	Draw = function()
+		if USING_BLUR then
+			MAT = ROUNDED_BLUR_MAT
+			COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
+			SetupDraw()
+
+			render_CopyRenderTargetToTexture(BLUR_RT)
+			MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 0)
+			surface_DrawTexturedRect(X, Y, W, H)
+
+			render_CopyRenderTargetToTexture(BLUR_RT)
+			MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 1)
+			return surface_DrawTexturedRect(X, Y, W, H)
+		end
+		if TEXTURE then
+			MAT = ROUNDED_TEXTURE_MAT
+			MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
+		end
+		SetupDraw()
+		return surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
+	end
+}
+
+local CIRCLE = {
+	Texture = BASE_FUNCS.Texture,
+	Material = BASE_FUNCS.Material,
+	Outline = BASE_FUNCS.Outline,
+	Color = BASE_FUNCS.Color,
+	Blur = BASE_FUNCS.Blur,
+
+	Draw = RECT.Draw
+}
+
+local TYPES = {
+	Rect = function(x, y, w, h)
+		RESET_PARAMS()
+		MAT = ROUNDED_MAT
+		X, Y, W, H = x, y, w, h
+		return RECT
+	end,
+	Circle = function(x, y, r)
+		RESET_PARAMS()
+		MAT = ROUNDED_MAT
+		SHAPE = SHAPES[SHAPE_CIRCLE]
+		X, Y, W, H = x - r / 2, y - r / 2, r, r
+		r = r / 2
+		TL, TR, BL, BR = r, r, r, r
+		return CIRCLE
+	end
+}
+
+setmetatable(RNDX, {
+	__call = function()
+		return TYPES
+	end
+})
 
 -- Flags
 RNDX.NO_TL = NO_TL
