@@ -42,7 +42,7 @@ local function GET_SHADER(name)
 end
 
 local BLUR_RT = GetRenderTargetEx("RNDX" .. SHADERS_VERSION .. SysTime(),
-	512, 512,
+	1024, 1024,
 	RT_SIZE_LITERAL,
 	MATERIAL_RT_DEPTH_SEPARATE,
 	bit.bor(2, 256, 4, 8 --[[4, 8 is clamp_s + clamp-t]]),
