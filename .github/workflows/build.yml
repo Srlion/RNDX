@@ -15,7 +15,7 @@ jobs:
         shell: pwsh
         run: |
           python build.py
-          copy src/rndx.lua C:\rndx.lua
+          copy src/rndx_compiled.lua C:\rndx.lua
 
       - name: Set Unix Timestamp
         id: time

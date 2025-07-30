@@ -3,3 +3,4 @@
 sound.cache
 shaders
 src/shaders
+src/rndx_compiled.lua

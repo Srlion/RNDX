@@ -6,6 +6,7 @@ import struct
 import io
 import time
 
+
 class GMAWriter:
     HEADER = b"GMAD"
     VERSION = 3
@@ -48,6 +49,7 @@ class GMAWriter:
         buffer.write(struct.pack("<I", 0))
         return buffer.getvalue()
 
+
 def main():
     os.system("build_shaders.bat")
 
@@ -83,13 +85,16 @@ def main():
         lua_content = f.read()
 
     lua_content = lua_content.replace("SHADERS_VERSION_PLACEHOLDER", version)
-    lua_content = lua_content.replace("SHADERS_GMA_PLACEHOLDER", b64_encoded_data)
+    lua_content = lua_content.replace(
+        "SHADERS_GMA_PLACEHOLDER", b64_encoded_data)
 
     # Write the updated content back to the file.
-    with open(rndx_path, "w", encoding="utf-8") as f:
+    output_path = os.path.join("src", "rndx_compiled.lua")
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(lua_content)
 
-    print("Processing complete.")
+    print(f"Processing complete. Output written to: {output_path}")
+
 
 if __name__ == "__main__":
     main()
