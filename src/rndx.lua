@@ -175,6 +175,7 @@ local TEXTURE
 local USING_BLUR, BLUR_INTENSITY
 local COL_R, COL_G, COL_B, COL_A
 local SHAPE, OUTLINE_THICKNESS, AA
+local START_ANGLE, END_ANGLE, ROTATION
 local function RESET_PARAMS()
 	MAT = nil
 	X, Y, W, H = 0, 0, 0, 0
@@ -183,6 +184,7 @@ local function RESET_PARAMS()
 	USING_BLUR, BLUR_INTENSITY = false, 1.0
 	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
 	SHAPE, OUTLINE_THICKNESS, AA = SHAPES[SHAPE_FIGMA], -1, 0
+	START_ANGLE, END_ANGLE, ROTATION = 0, 360, 0
 end
 
 local function SetupDraw()
@@ -194,10 +196,10 @@ local function SetupDraw()
 	MATRIX_SetUnpacked(
 		matrix,
 
-		BL, W, OUTLINE_THICKNESS or -1, 0,
-		BR, H, AA, 0,
+		BL, W, OUTLINE_THICKNESS or -1, END_ANGLE,
+		BR, H, AA, ROTATION,
 		TR, SHAPE, BLUR_INTENSITY or 1.0, 0,
-		TL, TEXTURE and 1 or 0, 0, 0
+		TL, TEXTURE and 1 or 0, START_ANGLE, 0
 	)
 	MATERIAL_SetMatrix(MAT, "$viewprojmat", matrix)
 
@@ -445,6 +447,18 @@ local BASE_FUNCS = {
 		USING_BLUR, BLUR_INTENSITY = true, intensity
 		return self
 	end,
+	Rotation = function(self, angle)
+		ROTATION = math.rad(angle or 0)
+		return self
+	end,
+	StartAngle = function(self, angle)
+		START_ANGLE = angle or 0
+		return self
+	end,
+	EndAngle = function(self, angle)
+		END_ANGLE = angle or 360
+		return self
+	end,
 }
 
 local RECT = {
@@ -456,6 +470,9 @@ local RECT = {
 	Shape = BASE_FUNCS.Shape,
 	Color = BASE_FUNCS.Color,
 	Blur = BASE_FUNCS.Blur,
+	Rotation = BASE_FUNCS.Rotation,
+	StartAngle = BASE_FUNCS.StartAngle,
+	EndAngle = BASE_FUNCS.EndAngle,
 
 	Draw = function()
 		if USING_BLUR then
@@ -486,6 +503,9 @@ local CIRCLE = {
 	Outline = BASE_FUNCS.Outline,
 	Color = BASE_FUNCS.Color,
 	Blur = BASE_FUNCS.Blur,
+	Rotation = BASE_FUNCS.Rotation,
+	StartAngle = BASE_FUNCS.StartAngle,
+	EndAngle = BASE_FUNCS.EndAngle,
 
 	Draw = RECT.Draw
 }
