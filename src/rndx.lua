@@ -162,6 +162,7 @@ local SHAPES = {
 	[SHAPE_FIGMA] = 2.2,
 	[SHAPE_IOS] = 4,
 }
+local DEFAULT_SHAPE = SHAPE_FIGMA
 
 local MATERIAL_SetTexture = ROUNDED_MAT.SetTexture
 local MATERIAL_SetMatrix = ROUNDED_MAT.SetMatrix
@@ -183,7 +184,7 @@ local function RESET_PARAMS()
 	TEXTURE = nil
 	USING_BLUR, BLUR_INTENSITY = false, 1.0
 	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
-	SHAPE, OUTLINE_THICKNESS, AA = SHAPES[SHAPE_FIGMA], -1, 0
+	SHAPE, OUTLINE_THICKNESS, AA = SHAPES[DEFAULT_SHAPE], -1, 0
 	START_ANGLE, END_ANGLE, ROTATION = 0, 360, 0
 end
 
@@ -211,7 +212,7 @@ local function SetupDraw()
 end
 
 local MANUAL_COLOR = NEW_FLAG()
-local DEFAULT_DRAW_FLAGS = SHAPE_FIGMA
+local DEFAULT_DRAW_FLAGS = DEFAULT_SHAPE
 
 local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thickness)
 	if col and col.a == 0 then
@@ -240,7 +241,7 @@ local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thi
 		bit_band(flags, NO_TR) == 0 and tr or 0,
 		bit_band(flags, NO_BL) == 0 and bl or 0,
 		bit_band(flags, NO_BR) == 0 and br or 0
-	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[SHAPE_FIGMA]
+	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
 	OUTLINE_THICKNESS = thickness
 
 	if bit_band(flags, MANUAL_COLOR) ~= 0 then
@@ -314,7 +315,7 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 		bit_band(flags, NO_TR) == 0 and tr or 0,
 		bit_band(flags, NO_BL) == 0 and bl or 0,
 		bit_band(flags, NO_BR) == 0 and br or 0
-	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[SHAPE_FIGMA]
+	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
 	OUTLINE_THICKNESS = thickness
 
 	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
@@ -374,7 +375,7 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		bit_band(flags, NO_TR) == 0 and tr or 0,
 		bit_band(flags, NO_BL) == 0 and bl or 0,
 		bit_band(flags, NO_BR) == 0 and br or 0
-	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[SHAPE_FIGMA]
+	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
 	OUTLINE_THICKNESS = thickness
 
 	AA = intensity
@@ -554,6 +555,11 @@ function RNDX.SetFlag(flags, flag, bool)
 	else
 		return bit.band(flags, bit.bnot(flag))
 	end
+end
+
+function RNDX.SetDefaultShape(shape)
+	DEFAULT_SHAPE = shape or SHAPE_FIGMA
+	DEFAULT_DRAW_FLAGS = DEFAULT_SHAPE
 end
 
 return RNDX
