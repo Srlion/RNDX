@@ -153,7 +153,7 @@ local SHADOWS_MAT = create_shader_mat("rounded_shadows", {
 local SHADOWS_BLUR_MAT = create_shader_mat("shadows_blur_horizontal", {
 	["$pixshader"] = GET_SHADER("rndx_shadows_blur_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = "_rt_PowerOfTwoFB",
+	["$basetexture"] = BLUR_RT:GetName(),
 	["$texture1"] = "_rt_FullFrameFB",
 })
 
