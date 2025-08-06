@@ -404,6 +404,15 @@ function RNDX.DrawShadowsOutlined(r, x, y, w, h, col, thickness, spread, intensi
 	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity, thickness or 1)
 end
 
+function RNDX.DrawShadowsClip(pnl, r, x, y, w, h, col, spread, intensity, flags)
+    local sx, sy = pnl:LocalToScreen(0, 0)
+    local sw, sh = pnl:GetWide(), pnl:GetTall()
+
+    render.SetScissorRect(sx, sy, sx + sw, sy + sh, true)
+    	RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
+    render.SetScissorRect(0, 0, 0, 0, false)
+end
+
 local BASE_FUNCS = {
 	Rad = function(self, rad)
 		TL, TR, BL, BR = rad, rad, rad, rad
