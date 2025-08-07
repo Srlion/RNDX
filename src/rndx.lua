@@ -177,6 +177,7 @@ local USING_BLUR, BLUR_INTENSITY
 local COL_R, COL_G, COL_B, COL_A
 local SHAPE, OUTLINE_THICKNESS, AA
 local START_ANGLE, END_ANGLE, ROTATION
+local CLIP_PANEL = nil
 local function RESET_PARAMS()
 	MAT = nil
 	X, Y, W, H = 0, 0, 0, 0
@@ -186,6 +187,7 @@ local function RESET_PARAMS()
 	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
 	SHAPE, OUTLINE_THICKNESS, AA = SHAPES[DEFAULT_SHAPE], -1, 0
 	START_ANGLE, END_ANGLE, ROTATION = 0, 360, 0
+	CLIP_PANEL = nil
 end
 
 local function SetupDraw()
@@ -404,15 +406,6 @@ function RNDX.DrawShadowsOutlined(r, x, y, w, h, col, thickness, spread, intensi
 	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity, thickness or 1)
 end
 
-function RNDX.DrawShadowsClip(pnl, r, x, y, w, h, col, spread, intensity, flags)
-    local sx, sy = pnl:LocalToScreen(0, 0)
-    local sw, sh = pnl:GetWide(), pnl:GetTall()
-
-    render.SetScissorRect(sx, sy, sx + sw, sy + sh, true)
-    	RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
-    render.SetScissorRect(0, 0, 0, 0, false)
-end
-
 local BASE_FUNCS = {
 	Rad = function(self, rad)
 		TL, TR, BL, BR = rad, rad, rad, rad
@@ -469,6 +462,10 @@ local BASE_FUNCS = {
 		END_ANGLE = angle or 360
 		return self
 	end,
+	Clip = function(self, pnl)
+		CLIP_PANEL = pnl
+		return self
+	end,
 }
 
 local RECT = {
@@ -483,8 +480,17 @@ local RECT = {
 	Rotation = BASE_FUNCS.Rotation,
 	StartAngle = BASE_FUNCS.StartAngle,
 	EndAngle = BASE_FUNCS.EndAngle,
+	Clip = BASE_FUNCS.Clip,
 
-	Draw = function()
+	Draw = function(self)
+		local old_clip
+		if CLIP_PANEL then
+			local sx, sy = CLIP_PANEL:LocalToScreen(0,0)
+			local sw, sh = CLIP_PANEL:GetWide(), CLIP_PANEL:GetTall()
+			render.SetScissorRect(sx, sy, sx+sw, sy+sh, true)
+			old_clip = true
+		end
+
 		if USING_BLUR then
 			MAT = ROUNDED_BLUR_MAT
 			COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
@@ -496,14 +502,18 @@ local RECT = {
 
 			render_CopyRenderTargetToTexture(BLUR_RT)
 			MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 1)
-			return surface_DrawTexturedRect(X, Y, W, H)
+			local ret = surface_DrawTexturedRect(X, Y, W, H)
+			if old_clip then render.SetScissorRect(0, 0, 0, 0, false) end
+			return ret
 		end
 		if TEXTURE then
 			MAT = ROUNDED_TEXTURE_MAT
 			MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
 		end
 		SetupDraw()
-		return surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
+		local ret = surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
+		if old_clip then render.SetScissorRect(0, 0, 0, 0, false) end
+		return ret
 	end
 }
 
@@ -516,6 +526,7 @@ local CIRCLE = {
 	Rotation = BASE_FUNCS.Rotation,
 	StartAngle = BASE_FUNCS.StartAngle,
 	EndAngle = BASE_FUNCS.EndAngle,
+	Clip = BASE_FUNCS.Clip,
 
 	Draw = RECT.Draw
 }
