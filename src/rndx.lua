@@ -178,6 +178,9 @@ local COL_R, COL_G, COL_B, COL_A
 local SHAPE, OUTLINE_THICKNESS, AA
 local START_ANGLE, END_ANGLE, ROTATION
 local CLIP_PANEL = nil
+local SHADOW_ENABLED = false
+local SHADOW_SPREAD = 0
+local SHADOW_INTENSITY = 0
 local function RESET_PARAMS()
 	MAT = nil
 	X, Y, W, H = 0, 0, 0, 0
@@ -188,6 +191,9 @@ local function RESET_PARAMS()
 	SHAPE, OUTLINE_THICKNESS, AA = SHAPES[DEFAULT_SHAPE], -1, 0
 	START_ANGLE, END_ANGLE, ROTATION = 0, 360, 0
 	CLIP_PANEL = nil
+	SHADOW_ENABLED = false
+	SHADOW_SPREAD = 0
+	SHADOW_INTENSITY = 0
 end
 
 local function SetupDraw()
@@ -462,6 +468,12 @@ local BASE_FUNCS = {
 		END_ANGLE = angle or 360
 		return self
 	end,
+	Shadow = function(self, spread, intensity)
+		SHADOW_ENABLED = true
+		SHADOW_SPREAD = spread or 30
+		SHADOW_INTENSITY = intensity or (spread or 30) * 1.2
+		return self
+	end,
 	Clip = function(self, pnl)
 		CLIP_PANEL = pnl
 		return self
@@ -481,6 +493,7 @@ local RECT = {
 	StartAngle = BASE_FUNCS.StartAngle,
 	EndAngle = BASE_FUNCS.EndAngle,
 	Clip = BASE_FUNCS.Clip,
+	Shadow = BASE_FUNCS.Shadow,
 
 	Draw = function(self)
 		local old_clip
@@ -489,6 +502,14 @@ local RECT = {
 			local sw, sh = CLIP_PANEL:GetWide(), CLIP_PANEL:GetTall()
 			render.SetScissorRect(sx, sy, sx+sw, sy+sh, true)
 			old_clip = true
+		end
+
+		if SHADOW_ENABLED then
+			RNDX.DrawShadowsEx(X, Y, W, H, Color(COL_R, COL_G, COL_B, COL_A), 0, TL, TR, BL, BR, SHADOW_SPREAD, SHADOW_INTENSITY, OUTLINE_THICKNESS)
+			if old_clip then
+                render.SetScissorRect(0, 0, 0, 0, false)
+            end
+            return
 		end
 
 		if USING_BLUR then
