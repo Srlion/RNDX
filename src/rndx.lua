@@ -500,7 +500,7 @@ local RECT = {
 		if CLIP_PANEL then
 			local sx, sy = CLIP_PANEL:LocalToScreen(0,0)
 			local sw, sh = CLIP_PANEL:GetWide(), CLIP_PANEL:GetTall()
-			render.SetScissorRect(sx, sy, sx+sw, sy+sh, true)
+			render.SetScissorRect(sx, sy, sx + sw, sy + sh, true)
 			old_clip = true
 		end
 
