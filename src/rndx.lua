@@ -175,12 +175,10 @@ local TL, TR, BL, BR
 local TEXTURE
 local USING_BLUR, BLUR_INTENSITY
 local COL_R, COL_G, COL_B, COL_A
-local SHAPE, OUTLINE_THICKNESS, AA
+local SHAPE, OUTLINE_THICKNESS
 local START_ANGLE, END_ANGLE, ROTATION
-local CLIP_PANEL = nil
-local SHADOW_ENABLED = false
-local SHADOW_SPREAD = 0
-local SHADOW_INTENSITY = 0
+local CLIP_PANEL
+local SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY
 local function RESET_PARAMS()
 	MAT = nil
 	X, Y, W, H = 0, 0, 0, 0
@@ -188,12 +186,10 @@ local function RESET_PARAMS()
 	TEXTURE = nil
 	USING_BLUR, BLUR_INTENSITY = false, 1.0
 	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
-	SHAPE, OUTLINE_THICKNESS, AA = SHAPES[DEFAULT_SHAPE], -1, 0
+	SHAPE, OUTLINE_THICKNESS = SHAPES[DEFAULT_SHAPE], -1
 	START_ANGLE, END_ANGLE, ROTATION = 0, 360, 0
 	CLIP_PANEL = nil
-	SHADOW_ENABLED = false
-	SHADOW_SPREAD = 0
-	SHADOW_INTENSITY = 0
+	SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY = false, 0, 0
 end
 
 local function SetupDraw()
@@ -206,7 +202,7 @@ local function SetupDraw()
 		matrix,
 
 		BL, W, OUTLINE_THICKNESS or -1, END_ANGLE,
-		BR, H, AA, ROTATION,
+		BR, H, SHADOW_INTENSITY, ROTATION,
 		TR, SHAPE, BLUR_INTENSITY or 1.0, 0,
 		TL, TEXTURE and 1 or 0, START_ANGLE, 0
 	)
@@ -303,7 +299,26 @@ function RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)
 end
 
 local USE_SHADOWS_BLUR = false
-local SHADOWS_AA = 0
+
+local function draw_blur()
+	if USE_SHADOWS_BLUR then
+		MAT = SHADOWS_BLUR_MAT
+	else
+		MAT = ROUNDED_BLUR_MAT
+	end
+
+	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
+	SetupDraw()
+
+	render_CopyRenderTargetToTexture(BLUR_RT)
+	MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 0)
+	surface_DrawTexturedRect(X, Y, W, H)
+
+	render_CopyRenderTargetToTexture(BLUR_RT)
+	MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 1)
+	surface_DrawTexturedRect(X, Y, W, H)
+end
+
 function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	RESET_PARAMS()
 
@@ -311,13 +326,7 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 		flags = DEFAULT_DRAW_FLAGS
 	end
 
-	if USE_SHADOWS_BLUR then
-		MAT = SHADOWS_BLUR_MAT
-		AA = SHADOWS_AA
-	else
-		MAT = ROUNDED_BLUR_MAT
-	end
-
+	X, Y = x, y
 	W, H = w, h
 	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
 		bit_band(flags, NO_TR) == 0 and tr or 0,
@@ -326,17 +335,40 @@ function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
 	OUTLINE_THICKNESS = thickness
 
-	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
+	draw_blur()
+end
+
+local function setup_shadows()
+	X = X - SHADOW_SPREAD
+	Y = Y - SHADOW_SPREAD
+	W = W + (SHADOW_SPREAD * 2)
+	H = H + (SHADOW_SPREAD * 2)
+
+	TL = TL + (SHADOW_SPREAD * 2)
+	TR = TR + (SHADOW_SPREAD * 2)
+	BL = BL + (SHADOW_SPREAD * 2)
+	BR = BR + (SHADOW_SPREAD * 2)
+end
+
+local function draw_shadows(r, g, b, a)
+	if USING_BLUR then
+		USE_SHADOWS_BLUR = true
+		draw_blur()
+		USE_SHADOWS_BLUR = false
+	end
+
+	MAT = SHADOWS_MAT
+
+	if r == false then
+		COL_R = nil
+	else
+		COL_R, COL_G, COL_B, COL_A = r, g, b, a
+	end
 
 	SetupDraw()
-
-	render_CopyRenderTargetToTexture(BLUR_RT)
-	MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 0)
-	surface_DrawTexturedRect(x, y, w, h)
-
-	render_CopyRenderTargetToTexture(BLUR_RT)
-	MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 1)
-	return surface_DrawTexturedRect(x, y, w, h)
+	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
+	-- fixes having no $basetexture causing uv to be broken
+	surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
 end
 
 function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)
@@ -344,64 +376,37 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		return
 	end
 
-	-- if we are inside a panel, we need to draw outside of it
-	local old_clipping_state = DisableClipping(true)
+	RESET_PARAMS()
 
 	if not flags then
 		flags = DEFAULT_DRAW_FLAGS
 	end
 
-	local using_blur = bit_band(flags, BLUR) ~= 0
-	if using_blur then
-		SHADOWS_AA = intensity
-		USE_SHADOWS_BLUR = true
-		RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
-		USE_SHADOWS_BLUR = false
-	end
-
-	RESET_PARAMS()
-
-	-- Shadows are a bit bigger than the actual box
-	spread = spread or 30
-	intensity = intensity or spread * 1.2
-
-	x = x - spread
-	y = y - spread
-	w = w + (spread * 2)
-	h = h + (spread * 2)
-
-	tl = tl + (spread * 2)
-	tr = tr + (spread * 2)
-	bl = bl + (spread * 2)
-	br = br + (spread * 2)
-	--
-
-	MAT = SHADOWS_MAT
-
+	X, Y = x, y
 	W, H = w, h
+	SHADOW_SPREAD = spread or 30
+	SHADOW_INTENSITY = intensity or SHADOW_SPREAD * 1.2
+
 	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
 		bit_band(flags, NO_TR) == 0 and tr or 0,
 		bit_band(flags, NO_BL) == 0 and bl or 0,
 		bit_band(flags, NO_BR) == 0 and br or 0
+
 	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
+
 	OUTLINE_THICKNESS = thickness
 
-	AA = intensity
+	setup_shadows()
+
+	USING_BLUR = bit_band(flags, BLUR) ~= 0
 
 	if bit_band(flags, MANUAL_COLOR) ~= 0 then
-		COL_R = nil
+		draw_shadows(false, nil, nil, nil)
 	elseif col then
-		COL_R, COL_G, COL_B, COL_A = col.r, col.g, col.b, col.a
+		draw_shadows(col.r, col.g, col.b, col.a)
 	else
-		COL_R, COL_G, COL_B, COL_A = 0, 0, 0, 255
+		draw_shadows(0, 0, 0, 255)
 	end
-
-	SetupDraw()
-	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
-	-- fixes having no $basetexture causing uv to be broken
-	surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
-
-	return DisableClipping(old_clipping_state)
 end
 
 function RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)
@@ -469,9 +474,7 @@ local BASE_FUNCS = {
 		return self
 	end,
 	Shadow = function(self, spread, intensity)
-		SHADOW_ENABLED = true
-		SHADOW_SPREAD = spread or 30
-		SHADOW_INTENSITY = intensity or (spread or 30) * 1.2
+		SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY = true, spread or 30, intensity or (spread or 30) * 1.2
 		return self
 	end,
 	Clip = function(self, pnl)
@@ -496,45 +499,34 @@ local RECT = {
 	Shadow = BASE_FUNCS.Shadow,
 
 	Draw = function(self)
-		local old_clip
+		local OLD_CLIPPING_STATE
 		if CLIP_PANEL then
-			local sx, sy = CLIP_PANEL:LocalToScreen(0,0)
-			local sw, sh = CLIP_PANEL:GetWide(), CLIP_PANEL:GetTall()
+			-- if we are inside a panel, we need to draw outside of it
+			OLD_CLIPPING_STATE = DisableClipping(true)
+			local sx, sy = CLIP_PANEL:LocalToScreen(0, 0)
+			local sw, sh = CLIP_PANEL:GetSize()
 			render.SetScissorRect(sx, sy, sx + sw, sy + sh, true)
-			old_clip = true
 		end
 
 		if SHADOW_ENABLED then
-			RNDX.DrawShadowsEx(X, Y, W, H, Color(COL_R, COL_G, COL_B, COL_A), 0, TL, TR, BL, BR, SHADOW_SPREAD, SHADOW_INTENSITY, OUTLINE_THICKNESS)
-			if old_clip then
-                render.SetScissorRect(0, 0, 0, 0, false)
-            end
-            return
-		end
+			setup_shadows()
+			draw_shadows(COL_R, COL_G, COL_B, COL_A)
+		elseif USING_BLUR then
+			draw_blur()
+		else
+			if TEXTURE then
+				MAT = ROUNDED_TEXTURE_MAT
+				MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
+			end
 
-		if USING_BLUR then
-			MAT = ROUNDED_BLUR_MAT
-			COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
 			SetupDraw()
-
-			render_CopyRenderTargetToTexture(BLUR_RT)
-			MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 0)
-			surface_DrawTexturedRect(X, Y, W, H)
-
-			render_CopyRenderTargetToTexture(BLUR_RT)
-			MATERIAL_SetFloat(MAT, BLUR_VERTICAL, 1)
-			local ret = surface_DrawTexturedRect(X, Y, W, H)
-			if old_clip then render.SetScissorRect(0, 0, 0, 0, false) end
-			return ret
+			surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
 		end
-		if TEXTURE then
-			MAT = ROUNDED_TEXTURE_MAT
-			MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
+
+		if CLIP_PANEL then
+			render.SetScissorRect(0, 0, 0, 0, false)
+			DisableClipping(OLD_CLIPPING_STATE)
 		end
-		SetupDraw()
-		local ret = surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
-		if old_clip then render.SetScissorRect(0, 0, 0, 0, false) end
-		return ret
 	end
 }
 
@@ -548,6 +540,7 @@ local CIRCLE = {
 	StartAngle = BASE_FUNCS.StartAngle,
 	EndAngle = BASE_FUNCS.EndAngle,
 	Clip = BASE_FUNCS.Clip,
+	Shadow = BASE_FUNCS.Shadow,
 
 	Draw = RECT.Draw
 }
