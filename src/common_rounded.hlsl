@@ -32,12 +32,9 @@ float length_custom(float2 vec) {
 
 // Rotate a 2D point by given angle (in radians)
 float2 rotate_point(float2 p) {
-    float cos_a = cos(ROTATION);
-    float sin_a = sin(ROTATION);
-    return float2(
-        p.x * cos_a - p.y * sin_a,
-        p.x * sin_a + p.y * cos_a
-    );
+    float s, c;
+    sincos(ROTATION, s, c);
+    return float2(p.x * c - p.y * s, p.x * s + p.y * c);
 }
 
 float rounded_box_sdf(float2 p, float2 b, float4 r) {
