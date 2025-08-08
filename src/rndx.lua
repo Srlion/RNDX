@@ -376,6 +376,8 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		return
 	end
 
+	local OLD_CLIPPING_STATE = DisableClipping(true)
+
 	RESET_PARAMS()
 
 	if not flags then
@@ -407,6 +409,8 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 	else
 		draw_shadows(0, 0, 0, 255)
 	end
+
+	DisableClipping(OLD_CLIPPING_STATE)
 end
 
 function RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)
@@ -500,9 +504,12 @@ local RECT = {
 
 	Draw = function(self)
 		local OLD_CLIPPING_STATE
-		if CLIP_PANEL then
+		if SHADOW_ENABLED or CLIP_PANEL then
 			-- if we are inside a panel, we need to draw outside of it
 			OLD_CLIPPING_STATE = DisableClipping(true)
+		end
+
+		if CLIP_PANEL then
 			local sx, sy = CLIP_PANEL:LocalToScreen(0, 0)
 			local sw, sh = CLIP_PANEL:GetSize()
 			render.SetScissorRect(sx, sy, sx + sw, sy + sh, true)
@@ -525,6 +532,9 @@ local RECT = {
 
 		if CLIP_PANEL then
 			render.SetScissorRect(0, 0, 0, 0, false)
+		end
+
+		if SHADOW_ENABLED or CLIP_PANEL then
 			DisableClipping(OLD_CLIPPING_STATE)
 		end
 	end
