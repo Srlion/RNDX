@@ -488,21 +488,21 @@ local BASE_FUNCS = {
 }
 
 local RECT = {
-	Rad = BASE_FUNCS.Rad,
-	Radii = BASE_FUNCS.Radii,
-	Texture = BASE_FUNCS.Texture,
-	Material = BASE_FUNCS.Material,
-	Outline = BASE_FUNCS.Outline,
-	Shape = BASE_FUNCS.Shape,
-	Color = BASE_FUNCS.Color,
-	Blur = BASE_FUNCS.Blur,
-	Rotation = BASE_FUNCS.Rotation,
-	StartAngle = BASE_FUNCS.StartAngle,
-	EndAngle = BASE_FUNCS.EndAngle,
-	Clip = BASE_FUNCS.Clip,
-	Shadow = BASE_FUNCS.Shadow,
+	Rad         = BASE_FUNCS.Rad,
+	Radii       = BASE_FUNCS.Radii,
+	Texture     = BASE_FUNCS.Texture,
+	Material    = BASE_FUNCS.Material,
+	Outline     = BASE_FUNCS.Outline,
+	Shape       = BASE_FUNCS.Shape,
+	Color       = BASE_FUNCS.Color,
+	Blur        = BASE_FUNCS.Blur,
+	Rotation    = BASE_FUNCS.Rotation,
+	StartAngle  = BASE_FUNCS.StartAngle,
+	EndAngle    = BASE_FUNCS.EndAngle,
+	Clip        = BASE_FUNCS.Clip,
+	Shadow      = BASE_FUNCS.Shadow,
 
-	Draw = function(self)
+	Draw        = function(self)
 		local OLD_CLIPPING_STATE
 		if SHADOW_ENABLED or CLIP_PANEL then
 			-- if we are inside a panel, we need to draw outside of it
@@ -537,7 +537,21 @@ local RECT = {
 		if SHADOW_ENABLED or CLIP_PANEL then
 			DisableClipping(OLD_CLIPPING_STATE)
 		end
-	end
+	end,
+
+	GetMaterial = function(self)
+		if SHADOW_ENABLED or USING_BLUR then
+			error("You can't get the material of a shadowed or blurred rectangle!")
+		end
+
+		if TEXTURE then
+			MAT = ROUNDED_TEXTURE_MAT
+			MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
+		end
+		SetupDraw()
+
+		return MAT
+	end,
 }
 
 local CIRCLE = {
@@ -552,7 +566,8 @@ local CIRCLE = {
 	Clip = BASE_FUNCS.Clip,
 	Shadow = BASE_FUNCS.Shadow,
 
-	Draw = RECT.Draw
+	Draw = RECT.Draw,
+	GetMaterial = RECT.GetMaterial,
 }
 
 local TYPES = {
