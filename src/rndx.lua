@@ -52,7 +52,7 @@ local BLUR_RT = GetRenderTargetEx("RNDX" .. SHADERS_VERSION .. SysTime(),
 
 -- I know it exists in gmod, but I want to have math.min and math.max localized
 local function math_clamp(val, min, max)
-	return (math_min(math_max(val, min), max))
+	return math_min(math_max(val, min), max)
 end
 
 local NEW_FLAG; do
