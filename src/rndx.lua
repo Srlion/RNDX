@@ -50,11 +50,6 @@ local BLUR_RT = GetRenderTargetEx("RNDX" .. SHADERS_VERSION .. SysTime(),
 	IMAGE_FORMAT_BGRA8888
 )
 
--- I know it exists in gmod, but I want to have math.min and math.max localized
-local function math_clamp(val, min, max)
-	return math_min(math_max(val, min), max)
-end
-
 local NEW_FLAG; do
 	local flags_n = -1
 	function NEW_FLAG()
@@ -192,10 +187,40 @@ local function RESET_PARAMS()
 	SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY = false, 0, 0
 end
 
+local normalize_corner_radii; do
+	local HUGE = math.huge
+
+	local function nzr(x)
+		if x ~= x or x < 0 then return 0 end
+		local lim = math_min(W, H)
+		if x == HUGE then return lim end
+		return x
+	end
+
+	local function clamp0(x) return x < 0 and 0 or x end
+
+	function normalize_corner_radii()
+		local TL, TR, BL, BR = nzr(TL), nzr(TR), nzr(BL), nzr(BR)
+
+		local k = math_max(
+			1,
+			(TL + TR) / W,
+			(BL + BR) / W,
+			(TL + BL) / H,
+			(TR + BR) / H
+		)
+
+		if k > 1 then
+			local inv = 1 / k
+			TL, TR, BL, BR = TL * inv, TR * inv, BL * inv, BR * inv
+		end
+
+		return clamp0(TL), clamp0(TR), clamp0(BL), clamp0(BR)
+	end
+end
+
 local function SetupDraw()
-	local max_rad = math_min(W, H) / 2
-	TL, TR, BL, BR = math_clamp(TL, 0, max_rad), math_clamp(TR, 0, max_rad), math_clamp(BL, 0, max_rad),
-		math_clamp(BR, 0, max_rad)
+	local TL, TR, BL, BR = normalize_corner_radii()
 
 	local matrix = MATRIXES[MAT]
 	MATRIX_SetUnpacked(
