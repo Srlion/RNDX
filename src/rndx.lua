@@ -446,7 +446,7 @@ function RNDX.DrawShadowsOutlined(r, x, y, w, h, col, thickness, spread, intensi
 	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity, thickness or 1)
 end
 
-local BASE_FUNCS = {
+local BASE_FUNCS; BASE_FUNCS = {
 	Rad = function(self, rad)
 		TL, TR, BL, BR = rad, rad, rad, rad
 		return self
@@ -510,6 +510,42 @@ local BASE_FUNCS = {
 		CLIP_PANEL = pnl
 		return self
 	end,
+	Flags = function(self, flags)
+		flags = flags or 0
+
+		-- Corner flags
+		if bit_band(flags, NO_TL) ~= 0 then
+			TL = 0
+		end
+		if bit_band(flags, NO_TR) ~= 0 then
+			TR = 0
+		end
+		if bit_band(flags, NO_BL) ~= 0 then
+			BL = 0
+		end
+		if bit_band(flags, NO_BR) ~= 0 then
+			BR = 0
+		end
+
+		-- Shape flags
+		local shape_flag = bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)
+		if shape_flag ~= 0 then
+			SHAPE = SHAPES[shape_flag] or SHAPES[DEFAULT_SHAPE]
+		end
+
+		-- Blur flag
+		if bit_band(flags, BLUR) ~= 0 then
+			BASE_FUNCS.Blur(self)
+		end
+
+		-- Manual color flag
+		if bit_band(flags, MANUAL_COLOR) ~= 0 then
+			COL_R = nil
+		end
+
+		return self
+	end,
+
 }
 
 local RECT = {
@@ -526,6 +562,7 @@ local RECT = {
 	EndAngle    = BASE_FUNCS.EndAngle,
 	Clip        = BASE_FUNCS.Clip,
 	Shadow      = BASE_FUNCS.Shadow,
+	Flags       = BASE_FUNCS.Flags,
 
 	Draw        = function(self)
 		local OLD_CLIPPING_STATE
@@ -590,6 +627,7 @@ local CIRCLE = {
 	EndAngle = BASE_FUNCS.EndAngle,
 	Clip = BASE_FUNCS.Clip,
 	Shadow = BASE_FUNCS.Shadow,
+	Flags = BASE_FUNCS.Flags,
 
 	Draw = RECT.Draw,
 	GetMaterial = RECT.GetMaterial,
