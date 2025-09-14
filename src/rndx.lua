@@ -565,6 +565,10 @@ local RECT = {
 	Flags       = BASE_FUNCS.Flags,
 
 	Draw        = function(self)
+		if START_ANGLE == END_ANGLE then
+			return -- nothing to draw
+		end
+
 		local OLD_CLIPPING_STATE
 		if SHADOW_ENABLED or CLIP_PANEL then
 			-- if we are inside a panel, we need to draw outside of it
