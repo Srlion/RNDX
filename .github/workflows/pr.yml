@@ -1,0 +1,26 @@
+name: Build PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  now:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: pwsh
+        run: |
+          python build.py
+          copy src/rndx_compiled.lua C:\rndx.lua
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rndx-${{ github.ref_name }}
+          path: C:\rndx.lua
+          retention-days: 30
