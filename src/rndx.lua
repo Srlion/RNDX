@@ -50,6 +50,16 @@ local BLUR_RT = GetRenderTargetEx("RNDX" .. SHADERS_VERSION .. SysTime(),
 	IMAGE_FORMAT_BGRA8888
 )
 
+
+local RAMP_RT = GetRenderTargetEx("RNDX_RAMP" .. SHADERS_VERSION,
+	256, 1,
+	RT_SIZE_LITERAL,
+	MATERIAL_RT_DEPTH_SEPARATE,
+	bit.bor(4, 8),
+	0,
+	IMAGE_FORMAT_BGRA8888
+)
+
 local NEW_FLAG; do
 	local flags_n = -1
 	function NEW_FLAG()
@@ -66,6 +76,32 @@ local SHAPE_CIRCLE, SHAPE_FIGMA, SHAPE_IOS = NEW_FLAG(), NEW_FLAG(), NEW_FLAG()
 local BLUR                                 = NEW_FLAG()
 
 local RNDX                                 = {}
+
+
+function RNDX.GetSharedRampTexture()
+	return RAMP_RT
+end
+
+function RNDX.UpdateSharedRampTexture(colA, colB)
+	if not RAMP_RT then return end
+	if not colA or not colB then return end
+
+	render.PushRenderTarget(RAMP_RT)
+	render.Clear(0, 0, 0, 0, true, true)
+	cam.Start2D()
+	local w = RAMP_RT:Width()
+	for x = 0, w - 1 do
+		local t = x / (w - 1)
+		local r = Lerp(t, colA.r or 255, colB.r or 255)
+		local g = Lerp(t, colA.g or 255, colB.g or 255)
+		local b = Lerp(t, colA.b or 255, colB.b or 255)
+		local a = Lerp(t, colA.a or 255, colB.a or 255)
+		surface_SetDrawColor(r, g, b, a)
+		surface.DrawRect(x, 0, 1, 1)
+	end
+	cam.End2D()
+	render.PopRenderTarget()
+end
 
 local shader_mat                           = [==[
 screenspace_general
@@ -133,6 +169,8 @@ local ROUNDED_TEXTURE_MAT = create_shader_mat("rounded_texture", {
 })
 
 local BLUR_VERTICAL = "$c0_x"
+local C1_X, C1_Y, C1_Z, C1_W = "$c1_x", "$c1_y", "$c1_z", "$c1_w"
+local C2_X, C2_Y, C2_Z, C2_W = "$c2_x", "$c2_y", "$c2_z", "$c2_w"
 local ROUNDED_BLUR_MAT = create_shader_mat("blur_horizontal", {
 	["$pixshader"] = GET_SHADER("rndx_rounded_blur_ps30"),
 	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
@@ -174,6 +212,9 @@ local SHAPE, OUTLINE_THICKNESS
 local START_ANGLE, END_ANGLE, ROTATION
 local CLIP_PANEL
 local SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY
+local GRAD_MODE_FLAG, GRAD_CENTER_X, GRAD_CENTER_Y, GRAD_ANGLE
+local GRAD_SCALE_X, GRAD_SCALE_Y, GRAD_USE_RAMP_TEX, GRAD_TILING_MODE
+local GRAD_RAMP_TEXTURE
 local function RESET_PARAMS()
 	MAT = nil
 	X, Y, W, H = 0, 0, 0, 0
@@ -185,6 +226,9 @@ local function RESET_PARAMS()
 	START_ANGLE, END_ANGLE, ROTATION = 0, 360, 0
 	CLIP_PANEL = nil
 	SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY = false, 0, 0
+	GRAD_MODE_FLAG, GRAD_CENTER_X, GRAD_CENTER_Y, GRAD_ANGLE = 0, 0.5, 0.5, 0
+	GRAD_SCALE_X, GRAD_SCALE_Y, GRAD_USE_RAMP_TEX, GRAD_TILING_MODE = 0, 0, false, 0
+	GRAD_RAMP_TEXTURE = nil
 end
 
 local normalize_corner_radii; do
@@ -232,6 +276,29 @@ local function SetupDraw()
 		TL, TEXTURE and 1 or 0, START_ANGLE, 0
 	)
 	MATERIAL_SetMatrix(MAT, "$viewprojmat", matrix)
+
+
+	local mode = GRAD_MODE_FLAG or 0
+	local cx = GRAD_CENTER_X or 0.5
+	local cy = GRAD_CENTER_Y or 0.5
+	local gangle = GRAD_ANGLE or 0
+	local sx = GRAD_SCALE_X ~= 0 and GRAD_SCALE_X or W
+	local sy = GRAD_SCALE_Y ~= 0 and GRAD_SCALE_Y or H
+	local use_ramp = GRAD_USE_RAMP_TEX and 1 or 0
+	local tiling = GRAD_TILING_MODE or 0
+
+	MATERIAL_SetFloat(MAT, C1_X, cx)
+	MATERIAL_SetFloat(MAT, C1_Y, cy)
+	MATERIAL_SetFloat(MAT, C1_Z, gangle)
+	MATERIAL_SetFloat(MAT, C1_W, mode)
+	MATERIAL_SetFloat(MAT, C2_X, sx)
+	MATERIAL_SetFloat(MAT, C2_Y, sy)
+	MATERIAL_SetFloat(MAT, C2_Z, use_ramp)
+	MATERIAL_SetFloat(MAT, C2_W, tiling)
+
+	if GRAD_RAMP_TEXTURE then
+		MATERIAL_SetTexture(MAT, "$texture2", GRAD_RAMP_TEXTURE)
+	end
 
 	if COL_R then
 		surface_SetDrawColor(COL_R, COL_G, COL_B, COL_A)
@@ -490,6 +557,43 @@ local BASE_FUNCS; BASE_FUNCS = {
 		USING_BLUR, BLUR_INTENSITY = true, intensity
 		return self
 	end,
+	GradientNone = function(self)
+		GRAD_MODE_FLAG = 0
+		GRAD_RAMP_TEXTURE = nil
+		GRAD_USE_RAMP_TEX = false
+		return self
+	end,
+	GradientTiling = function(self, mode)
+		-- 0 clamp, 1 repeat, 2 mirror
+		GRAD_TILING_MODE = mode or 0
+		return self
+	end,
+	GradientLinear = function(self, cx, cy, angle_degrees, scale)
+		GRAD_MODE_FLAG = 1
+		GRAD_CENTER_X, GRAD_CENTER_Y = cx or 0.5, cy or 0.5
+		GRAD_ANGLE = math.rad(angle_degrees or 0)
+		GRAD_SCALE_X = scale or 0
+		GRAD_SCALE_Y = 0
+		return self
+	end,
+	GradientRadial = function(self, cx, cy, scale_x, scale_y)
+		GRAD_MODE_FLAG = 2
+		GRAD_CENTER_X, GRAD_CENTER_Y = cx or 0.5, cy or 0.5
+		GRAD_SCALE_X = scale_x or 0
+		GRAD_SCALE_Y = scale_y or GRAD_SCALE_X
+		return self
+	end,
+	GradientConic = function(self, cx, cy, angle_degrees)
+		GRAD_MODE_FLAG = 3
+		GRAD_CENTER_X, GRAD_CENTER_Y = cx or 0.5, cy or 0.5
+		GRAD_ANGLE = math.rad(angle_degrees or 0)
+		return self
+	end,
+	GradientTexture = function(self, texture)
+		GRAD_USE_RAMP_TEX = texture ~= nil
+		GRAD_RAMP_TEXTURE = texture or nil
+		return self
+	end,
 	Rotation = function(self, angle)
 		ROTATION = math.rad(angle or 0)
 		return self
@@ -557,6 +661,12 @@ local RECT = {
 	Shape       = BASE_FUNCS.Shape,
 	Color       = BASE_FUNCS.Color,
 	Blur        = BASE_FUNCS.Blur,
+	GradientNone= BASE_FUNCS.GradientNone,
+	GradientTiling= BASE_FUNCS.GradientTiling,
+	GradientLinear= BASE_FUNCS.GradientLinear,
+	GradientRadial= BASE_FUNCS.GradientRadial,
+	GradientConic= BASE_FUNCS.GradientConic,
+	GradientTexture= BASE_FUNCS.GradientTexture,
 	Rotation    = BASE_FUNCS.Rotation,
 	StartAngle  = BASE_FUNCS.StartAngle,
 	EndAngle    = BASE_FUNCS.EndAngle,
@@ -626,6 +736,12 @@ local CIRCLE = {
 	Outline = BASE_FUNCS.Outline,
 	Color = BASE_FUNCS.Color,
 	Blur = BASE_FUNCS.Blur,
+	GradientNone= BASE_FUNCS.GradientNone,
+	GradientTiling= BASE_FUNCS.GradientTiling,
+	GradientLinear= BASE_FUNCS.GradientLinear,
+	GradientRadial= BASE_FUNCS.GradientRadial,
+	GradientConic= BASE_FUNCS.GradientConic,
+	GradientTexture= BASE_FUNCS.GradientTexture,
 	Rotation = BASE_FUNCS.Rotation,
 	StartAngle = BASE_FUNCS.StartAngle,
 	EndAngle = BASE_FUNCS.EndAngle,
@@ -687,5 +803,4 @@ function RNDX.SetDefaultShape(shape)
 	DEFAULT_SHAPE = shape or SHAPE_FIGMA
 	DEFAULT_DRAW_FLAGS = DEFAULT_SHAPE
 end
-
 return RNDX
