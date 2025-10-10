@@ -26,8 +26,12 @@ const float4x4 g_viewProjMatrix : register( c11 );
 #define TWO_PI 6.28318530718
 
 float length_custom(float2 vec) {
-    float2 powered = pow(vec, POWER_PARAMETER);
-    return pow(dot(powered, 1.0), 1.0 / POWER_PARAMETER);
+    if (abs(POWER_PARAMETER - 2.0) < 0.01)
+        return length(vec);
+
+    float2 p = pow(abs(vec), POWER_PARAMETER);
+    float sum = p.x + p.y;
+    return pow(sum, 1.0 / POWER_PARAMETER);
 }
 
 // Rotate a 2D point by given angle (in radians)

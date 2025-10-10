@@ -10,19 +10,17 @@ static const float o[8] = {15.5, 13.5, 11.5, 9.5, 7.5, 5.5, 3.5, 1.5};
 float3 blur(float2 uv, float vertical)
 {
     float2 dir = vertical ? float2(0, 1) : float2(1, 0);
+    float2 offsetScale = Tex1Size * BLUR_INTENSITY * dir;
     float3 blr = float3(0.0, 0.0, 0.0);
-
-    [unroll] for(int i = 0; i < 8; i++) {
-        blr += w[i] * tex2D(TexBase, uv - Tex1Size * (o[i] * BLUR_INTENSITY * dir)).rgb;
-    }
 
     blr += 0.041312 * tex2D(TexBase, uv).rgb;
 
-    [unroll] for(int j = 7; j >= 0; j--) {
-        blr += w[j] * tex2D(TexBase, uv + Tex1Size * (o[j] * BLUR_INTENSITY * dir)).rgb;
+    [unroll]
+    for (int i = 0; i < 8; ++i) {
+        float2 off = offsetScale * o[i];
+        blr += w[i] * (tex2D(TexBase, uv - off).rgb + tex2D(TexBase, uv + off).rgb);
     }
 
     blr /= 0.93423;
-
     return blr;
 }

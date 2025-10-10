@@ -9,9 +9,10 @@
 float4 main(PS_INPUT i) : COLOR
 {
     float rounded_alpha = calculate_rounded_alpha(i);
-
-	if (rounded_alpha <= 0.0f)
-		discard;
+    if (rounded_alpha <= 0.001f)
+    {
+        return float4(0.0, 0.0, 0.0, 0.0);
+    }
 
     float3 blr = blur(i.pos * Tex1Size, BLUR_VERTICAL);
     return float4(blr, rounded_alpha);
