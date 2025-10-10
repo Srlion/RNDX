@@ -9,6 +9,7 @@
 float4 main(PS_INPUT i) : COLOR
 {
     float rounded_alpha = calculate_rounded_alpha(i);
+
     if (rounded_alpha <= 0.001f)
     {
         return float4(0.0, 0.0, 0.0, 0.0);
