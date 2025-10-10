@@ -14,6 +14,7 @@ if SERVER then
 end
 
 local bit_band = bit.band
+local bit_lshift = bit.lshift
 local surface_SetDrawColor = surface.SetDrawColor
 local surface_SetMaterial = surface.SetMaterial
 local surface_DrawTexturedRectUV = surface.DrawTexturedRectUV
@@ -54,7 +55,7 @@ local NEW_FLAG; do
 	local flags_n = -1
 	function NEW_FLAG()
 		flags_n = flags_n + 1
-		return 2 ^ flags_n
+		return bit_lshift(1, flags_n)
 	end
 end
 
