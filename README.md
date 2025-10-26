@@ -1,4 +1,4 @@
-# 🎨 RNDX
+# 🇵🇸 RNDX 🇵🇸
 
 **Draw rounded shapes with ease.**
 RNDX is a lightweight and efficient library designed to make drawing rounded shapes simple, fast, and visually stunning.
