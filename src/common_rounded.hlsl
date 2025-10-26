@@ -25,6 +25,68 @@ const float4x4 g_viewProjMatrix : register( c11 );
 #define DEG_TO_RAD 0.01745329251994329576923690768489
 #define TWO_PI 6.28318530718
 
+
+#define GRAD_CENTER           Constants1.xy
+#define GRAD_ANGLE            Constants1.z
+#define GRAD_MODE             Constants1.w
+
+#define GRAD_SCALE            Constants2.xy
+#define GRAD_USE_RAMP         Constants2.z
+#define GRAD_TILING           Constants2.w
+
+
+float apply_tiling(float t)
+{
+	if (GRAD_TILING < 0.5) {
+		
+		return saturate(t);
+	}
+	if (GRAD_TILING < 1.5) {
+		
+		return frac(t);
+	}
+
+	float tt = frac(t * 0.5) * 2.0;
+	return 1.0 - abs(tt - 1.0);
+}
+
+
+float2 gradient_centered_pos(float2 screen_pos, float2 rect_half_size)
+{
+	float2 centered = screen_pos - rect_half_size;
+	
+	float2 center_px = (GRAD_CENTER - 0.5) * (rect_half_size * 2.0);
+	return centered - center_px;
+}
+
+
+float compute_gradient_t(float2 centered_pos)
+{
+	
+	if (GRAD_MODE < 1.5) {
+		float s, c;
+		sincos(GRAD_ANGLE, s, c);
+		float2 dir = float2(c, s);
+		float denom = max(1e-5, GRAD_SCALE.x);
+		float t = dot(centered_pos, dir) / denom; 
+		
+		t = t * 0.5 + 0.5;
+		return apply_tiling(t);
+	}
+
+	
+	if (GRAD_MODE < 2.5) {
+		float2 scaled = centered_pos / max(1e-5, GRAD_SCALE.xy);
+		float t = length(scaled); 
+		return apply_tiling(t);
+	}
+
+	
+	float ang = atan2(centered_pos.y, centered_pos.x) - GRAD_ANGLE;
+	float t = ang / TWO_PI + 0.5; 
+	return apply_tiling(t);
+}
+
 float length_custom(float2 vec) {
     float2 powered = pow(vec, POWER_PARAMETER);
     return pow(dot(powered, 1.0), 1.0 / POWER_PARAMETER);
