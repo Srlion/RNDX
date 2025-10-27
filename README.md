@@ -31,6 +31,105 @@ Using Shader Model 3.0, RNDX provides near-perfect anti-aliasing with no perform
 
 ## 📐 Usage
 
+### Simple Rounded Rect
+
+```lua
+RNDX().Rect(50, 50, 300, 100)
+    :Rad(12)
+    :Color(30, 30, 30, 220)
+:Draw()
+```
+
+### Material Rect
+
+```lua
+local mat = Material("vgui/gradient-r")
+RNDX().Rect(100, 100, 256, 128)
+    :Material(mat)
+    :Rad(16)
+:Draw()
+```
+
+### Blur
+
+```lua
+RNDX().Rect(200, 200, 200, 100)
+    :Rad(8)
+    :Blur(1.5)
+    :Color(255, 255, 255)
+:Draw()
+```
+
+### Circles
+
+```lua
+RNDX().Circle(200, 200, 80)
+    :Color(100, 160, 255)
+:Draw()
+
+RNDX().Circle(400, 200, 80)
+    :Color(255, 80, 120, 180)
+    :Outline(5)
+:Draw()
+```
+
+### Per-corner Radii
+
+```lua
+RNDX().Rect(10, 10, 200, 100)
+    :Radii(10, 20, 30, 40)
+    :Color(0, 120, 200)
+:Draw()
+```
+
+---
+
+## 📚 Documentation
+
+### Flags
+
+- **`RNDX.NO_TL`** – Disable top-left corner.
+- **`RNDX.NO_TR`** – Disable top-right corner.
+- **`RNDX.NO_BL`** – Disable bottom-left corner.
+- **`RNDX.NO_BR`** – Disable bottom-right corner.
+- **`RNDX.BLUR`** – Enable blur rendering.
+
+---
+
+### Shapes
+
+- **`RNDX.SHAPE_CIRCLE`**
+- **`RNDX.SHAPE_FIGMA`** _(Default)_
+- **`RNDX.SHAPE_IOS`**
+
+![Screenshot](shapes.jpg)
+
+---
+
+### Chain API Reference
+
+| Method                                    | Description                                             |
+| ----------------------------------------- | ------------------------------------------------------- |
+| `:Rad(radius)`                            | Set a uniform corner radius.                            |
+| `:Radii(tl, tr, bl, br)`                  | Set per-corner radii.                                   |
+| `:Color(r, g, b, a)`                      | Set the color.                                          |
+| `:Texture(texture)`                       | Use a texture.                                          |
+| `:Material(material)`                     | Extracts the base texture from a Material.              |
+| `:Outline(thickness)`                     | Draw as outline with given thickness.                   |
+| `:Blur(intensity)`                        | Apply two-pass blur.                                    |
+| `:Shadow(spread, intensity)`              | Draw soft shadow under the shape.                       |
+| `:Shape(shape)`                           | Choose shape algorithm (`SHAPE_CIRCLE`, etc).           |
+| `:Rotation(angle)`                        | Rotate shape by given angle.                            |
+| `:StartAngle(angle)` / `:EndAngle(angle)` | Render only arc segment of circle/rect.                 |
+| `:Flags(flags)`                           | Apply bitwise flag combinations.                        |
+| `:Draw()`                                 | Render the shape.                                       |
+| `:GetMaterial()`                          | Return internal material (error if blur/shadow active). |
+| `:Clip(panel)`                            | Clip rendering within a specific panel.                 |
+
+---
+
+### Legacy Function API
+
 ```lua
 local RNDX = include("rndx.lua")
 hook.Add("HUDPaint", "RNDX Example", function()
@@ -40,45 +139,6 @@ hook.Add("HUDPaint", "RNDX Example", function()
     RNDX.DrawOutlined(10, 100, 100, 200, 200, Color(0, 255, 0), 10, flags)
 end)
 ```
-
-## 📚 Documentation
-
-### Flags
-
-- **`RNDX.NO_TL`**: Disables top-left corner.
-- **`RNDX.NO_TR`**: Disables top-right corner.
-- **`RNDX.NO_BL`**: Disables bottom-left corner.
-- **`RNDX.NO_BR`**: Disables bottom-right corner.
-- **`RNDX.BLUR`**: Use blur for the shape.
-- **`RNDX.MANUAL_COLOR`**: Allows setting the color via `surface.SetDrawColor`.
-
----
-
-- **`RNDX.SHAPE_CIRCLE`**
-- **`RNDX.SHAPE_FIGMA`** <-- Default
-- **`RNDX.SHAPE_IOS`**
-
-![Screenshot](shapes.jpg)
-
----
-
-### Functions
-
-### `RNDX.Draw(rad, x, y, w, h, col, flags)`
-
-### `RNDX.DrawOutlined(rad, x, y, w, h, col, thickness, flags)`
-
-### `RNDX.DrawTexture(rad, x, y, w, h, col, texture, flags)`
-
-### `RNDX.DrawMaterial(rad, x, y, w, h, col, mat, flags)`
-
-### `RNDX.DrawCircle(x, y, r, col, flags)` <-- Just a wrapper for `RNDX.Draw` with `RNDX.SHAPE_CIRCLE`.
-
-### `RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)`
-
-### `RNDX.DrawCircleTexture(x, y, r, col, texture, flags)`
-
-### `RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)`
 
 ---
 
@@ -95,7 +155,7 @@ end)
 
 ## Benchmarks
 
-Benchmarking has to be done with FPS meter, not checking how long cpu takes to draw.
+Benchmarking has to be done with FPS meter, not checking how long CPU takes to draw.
 
 #### Rounded Shapes
 
@@ -104,10 +164,10 @@ local RNDX = include("rndx.lua")
 local draw_RoundedBox = draw.RoundedBox
 local col = Color(0, 0, 0, 255)
 hook.Add("HUDPaint", "my_shader_draw", function()
-	for i = 1, 3000 do
-		RNDX.Draw(20, 20, 20, 200, 200, col)
-		-- draw_RoundedBox(20, 20, 20, 200, 200, col)
-	end
+    for i = 1, 3000 do
+        RNDX.Draw(20, 20, 20, 200, 200, col)
+        -- draw_RoundedBox(20, 20, 20, 200, 200, col)
+    end
 end)
 ```
 
@@ -122,6 +182,8 @@ end)
 - `Current RNDX`: 107 fps
 - `Previous RNDX`: 73 fps
 - https://pastebin.com/urx4Qvez : 59 fps
+
+---
 
 ## 📜 License
 
