@@ -311,10 +311,21 @@ function RNDX.DrawTexture(r, x, y, w, h, col, texture, flags)
 	return draw_rounded(x, y, w, h, col, flags, r, r, r, r, texture)
 end
 
+function RNDX.DrawTextureOutlined(r, x, y, w, h, col, texture, thickness, flags)
+	return draw_rounded(x, y, w, h, col, flags, r, r, r, r, texture, thickness or 1)
+end
+
 function RNDX.DrawMaterial(r, x, y, w, h, col, mat, flags)
 	local tex = mat:GetTexture("$basetexture")
 	if tex then
 		return RNDX.DrawTexture(r, x, y, w, h, col, tex, flags)
+	end
+end
+
+function RNDX.DrawMaterialOutlined(r, x, y, w, h, col, mat, thickness, flags)
+	local tex = mat:GetTexture("$basetexture")
+	if tex then
+		return RNDX.DrawTextureOutlined(r, x, y, w, h, col, tex, thickness or 1, flags)
 	end
 end
 
