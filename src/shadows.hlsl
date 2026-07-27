@@ -6,7 +6,7 @@
 #include "common_rounded.hlsl"
 
 #define SHADOW_SIGMA g_viewProjMatrix[2].y
-#define SHADOW_PAD g_viewProjMatrix[3].z
+#define SHADOW_PAD g_viewProjMatrix[3].w
 
 float2 erf2(float2 x)
 {
