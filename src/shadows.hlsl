@@ -110,15 +110,12 @@ float calculate_shadow(PS_INPUT i)
         shadow *= 0.5 - 0.5 * erf2(float2(angular_dist, 0) * (0.70710678 / sigma)).x;
     }
 
-    if (has_flag(FLAG_SHADOW_CLIP))
-    {
-        float2 elem_p = p + rotate_point(float2(SHADOW_OX, SHADOW_OY));
-        float2 elem_half = max(box_half - s, 0.0);
-        float4 elem_r = min(RADIUS, min(elem_half.x, elem_half.y));
+    float2 elem_p = p + rotate_point(float2(SHADOW_OX, SHADOW_OY));
+    float2 elem_half = max(box_half - s, 0.0);
+    float4 elem_r = min(RADIUS, min(elem_half.x, elem_half.y));
 
-        float d = rounded_arc_sdf(elem_p, elem_half, elem_r);
-        shadow *= 1.0 - blended_AA(d + 1.0, screen_pos);
-    }
+    float d = rounded_arc_sdf(elem_p, elem_half, elem_r);
+    shadow *= 1.0 - blended_AA(d + 1.0, screen_pos);
 
     return saturate(shadow);
 }

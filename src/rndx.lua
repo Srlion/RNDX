@@ -212,7 +212,7 @@ local START_ANGLE, END_ANGLE, ROTATION
 local CLIP_PANEL
 local SHADOW_ENABLED, SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY
 local SHADOW_SIGMA, PAD
-local SHADOW_CLIP, RADII_NORMALIZED
+local RADII_NORMALIZED
 
 local function RESET_PARAMS()
 	MAT = nil
@@ -227,7 +227,6 @@ local function RESET_PARAMS()
 	SHADOW_ENABLED = false
 	SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY = 0, 0, 0, 0
 	SHADOW_SIGMA, PAD = 0, 0
-	SHADOW_CLIP = true
 	RADII_NORMALIZED = false
 end
 
@@ -272,8 +271,7 @@ local function SetupDraw()
 	end
 
 	local flags_f = 0
-	if TEXTURE then flags_f = flags_f + 1 end                     -- FLAG_USE_TEXTURE
-	if SHADOW_ENABLED and SHADOW_CLIP then flags_f = flags_f + 2 end -- FLAG_SHADOW_CLIP
+	if TEXTURE then flags_f = flags_f + 1 end -- FLAG_USE_TEXTURE
 
 	local start_rad, sweep_rad
 	local sweep = END_ANGLE - START_ANGLE
@@ -452,10 +450,6 @@ local BASE_FUNCS; BASE_FUNCS = {
 		SHADOW_SPREAD = spread or 0
 		SHADOW_OX = offset_x or 0
 		SHADOW_OY = offset_y or 0
-		return self
-	end,
-	ShadowClip = function(self, enabled)
-		SHADOW_CLIP = enabled ~= false
 		return self
 	end,
 	Clip = function(self, pnl)
