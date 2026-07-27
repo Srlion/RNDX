@@ -1,143 +1,159 @@
 # 🇵🇸 RNDX 🇵🇸
 
 **Draw rounded shapes with ease.**
-RNDX is a lightweight and efficient library designed to make drawing rounded shapes simple, fast, and visually stunning.
 
-Using Shader Model 3.0, RNDX provides near-perfect anti-aliasing with no performance hit, allowing you to create beautiful interfaces and visuals with ease.
+Shader-powered drawing library for Garry's Mod. Rounded boxes, circles, outlines, blur and CSS-style shadows — with near-perfect anti-aliasing and no performance hit.
 
 ![Screenshot](thumbnail.png)
 ![Screenshot](thumbnail2.png)
 ![Screenshot](sbot.png)
 
----
+## Install
 
-## ✨ Why RNDX?
+1. Download `rndx.lua` from [releases](https://github.com/Srlion/RNDX/releases/latest).
+2. Put it in your project.
+3. `local RNDX = include("rndx.lua")` — `AddCSLuaFile` is called for you.
 
-- **Blazing Fast Performance**: Optimized for speed, RNDX is incredibly lightweight and efficient. _(It will get even faster once we [get `mat:SetFloat4()`](https://github.com/Facepunch/garrysmod-requests/issues/2606)!)_
-- **Perfect Anti-Aliasing**: Enjoy smooth, pixel-perfect corners with no performance hit.
-- **Simple & Intuitive**: No complex objects or states—just call a function and draw!
-- **Seamless Integration**: Works flawlessly inside `3D2D` and `Panel:Paint*` functions without any hacks.
-
----
-
-## 🛠️ Get Started
-
-1. Download `rndx.lua` from [GitHub releases](https://github.com/Srlion/RNDX/releases/latest).
-2. Add `rndx.lua` to your project.
-3. Run `include` on `rndx.lua`. (It's already calls `AddCSLuaFile` for you!)
-4. Voilà! You're ready to draw rounded shapes with ease. 🎉
-
----
-
-## 📐 Usage
+## Usage
 
 ```lua
 local RNDX = include("rndx.lua")
+
 hook.Add("HUDPaint", "RNDX Example", function()
-    local flags = RNDX.NO_TL + RNDX.NO_TR + RNDX.SHAPE_IOS
-    RNDX.Draw(10, 100, 100, 200, 200, nil, flags + RNDX.BLUR)
-    RNDX.Draw(10, 100, 100, 200, 200, Color(255, 0, 0, 150), flags)
-    RNDX.DrawOutlined(10, 100, 100, 200, 200, Color(0, 255, 0), 10, flags)
+    RNDX.Rect(100, 100, 200, 100)
+        :Rad(16)
+        :Color(30, 30, 30)
+        :Draw()
+
+    -- shadow: blur, spread, offset x, offset y (like css box-shadow)
+    RNDX.Rect(350, 100, 200, 100)
+        :Rad(16)
+        :Color(40, 40, 45)
+        :Shadow(24, 0, 0, 8)
+        :Draw()
+
+    -- frosted glass
+    RNDX.Rect(600, 100, 200, 100)
+        :Rad(16)
+        :Blur(2)
+        :Draw()
+
+    RNDX.Circle(200, 400, 80)
+        :Color(255, 100, 100)
+        :Outline(4)
+        :Draw()
 end)
 ```
 
-## 📚 Documentation
+## API
 
-### Flags
+`RNDX.Rect(x, y, w, h)` and `RNDX.Circle(x, y, radius)` return a builder. Chain methods, end with `:Draw()`.
 
-- **`RNDX.NO_TL`**: Disables top-left corner.
-- **`RNDX.NO_TR`**: Disables top-right corner.
-- **`RNDX.NO_BL`**: Disables bottom-left corner.
-- **`RNDX.NO_BR`**: Disables bottom-right corner.
-- **`RNDX.BLUR`**: Use blur for the shape.
-- **`RNDX.MANUAL_COLOR`**: Allows setting the color via `surface.SetDrawColor`.
+> [!NOTE]
+> Chaining is free — no objects are created, the builder writes to shared state. So build and `:Draw()` in one go, don't store builders for later.
 
----
-
-- **`RNDX.SHAPE_CIRCLE`**
-- **`RNDX.SHAPE_FIGMA`** <-- Default
-- **`RNDX.SHAPE_IOS`**
+| Method | Description |
+| --- | --- |
+| `:Rad(r)` | Corner radius (Rect only) |
+| `:Radii(tl = 0, tr = 0, bl = 0, br = 0)` | Per-corner radii (Rect only) |
+| `:Color(col)` / `:Color(r, g, b, a = 255)` | Fill color |
+| `:ManualColor()` | Skip color setting, use your own `surface.SetDrawColor` |
+| `:Outline(thickness = 1)` | Outline instead of fill |
+| `:Texture(tex)` | Textured fill |
+| `:Material(mat)` | Textured fill from a material |
+| `:Blur(intensity = 1)` | Backdrop blur |
+| `:Shadow(blur = 20, spread = 0, ox = 0, oy = 0)` | CSS-style shadow, defaults to black |
+| `:Shape(shape)` | `RNDX.SHAPE_CIRCLE` / `RNDX.SHAPE_FIGMA` (default) / `RNDX.SHAPE_IOS` |
+| `:Rotation(deg = 0)` | Rotate the shape |
+| `:Angles(start_deg = 0, end_deg = 360)` | Draw an arc/pie segment |
+| `:Clip(panel)` | Clip to a panel |
+| `:Draw()` | Draw it |
 
 ![Screenshot](shapes.jpg)
 
----
-
-### Functions
-
-### `RNDX.Draw(rad, x, y, w, h, col, flags)`
-
-### `RNDX.DrawOutlined(rad, x, y, w, h, col, thickness, flags)`
-
-### `RNDX.DrawTexture(rad, x, y, w, h, col, texture, flags)`
-
-### `RNDX.DrawMaterial(rad, x, y, w, h, col, mat, flags)`
-
-### `RNDX.DrawCircle(x, y, r, col, flags)` <-- Just a wrapper for `RNDX.Draw` with `RNDX.SHAPE_CIRCLE`.
-
-### `RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)`
-
-### `RNDX.DrawCircleTexture(x, y, r, col, texture, flags)`
-
-### `RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)`
-
----
-
-## 🚀 Why Choose RNDX Over Alternatives?
-
-| Feature           | RNDX                            | [Circles](https://github.com/SneakySquid/Circles) | [paint](https://github.com/Jaffies/paint) | [melonstuff](https://github.com/melonstuff) |
-| ----------------- | ------------------------------- | ------------------------------------------------- | ----------------------------------------- | ------------------------------------------- |
-| **Speed**         | ⚡ Extremely Fast               | 🐌 Slow with many circles                         | ⚡ Fast                                   | 🐌 Slow                                     |
-| **Anti-Aliasing** | ✅ Perfect, no performance cost | ❌ None                                           | ❌ Poor (Source Engine AA)                | ❌ None                                     |
-| **Ease of Use**   | 🎯 Simple & Minimal             | 🎯 Simple                                         | 🧩 Complex & Bloated                      | 🎯 Easy                                     |
-| **Documentation** | 📖 Clear & Concise              | 📖 Good                                           | ❌ Overwhelming & Undocumented            | 📖 Good                                     |
-
----
-
-## Benchmarks
-
-Benchmarking has to be done with FPS meter, not checking how long cpu takes to draw.
-
-#### Rounded Shapes
+Defaults:
 
 ```lua
-local RNDX = include("rndx.lua")
-local draw_RoundedBox = draw.RoundedBox
-local col = Color(0, 0, 0, 255)
-hook.Add("HUDPaint", "my_shader_draw", function()
-	for i = 1, 3000 do
-		RNDX.Draw(20, 20, 20, 200, 200, col)
-		-- draw_RoundedBox(20, 20, 20, 200, 200, col)
-	end
-end)
+RNDX.SetDefaultShape(RNDX.SHAPE_IOS)
+RNDX.SetDefaultBlurIntensity(3)
+RNDX.SetLegacyGamma(true) -- match gmod's default (broken) gamma, so colors look the same as draw.RoundedBox & other addons
 ```
 
-- `RNDX`: 140 FPS
-- `draw.RoundedBox`: 43 FPS
+## Examples
 
-#### Blur
+```lua
+draw.RoundedBox(8, x, y, w, h, col)          -- old
+RNDX.Rect(x, y, w, h):Rad(8):Color(col):Draw() -- rndx
+```
 
-150 Calls
-`x y w h` of `10, 10, 700, 700`
+Pill / fully rounded ends:
 
-- `Current RNDX`: 107 fps
-- `Previous RNDX`: 73 fps
-- https://pastebin.com/urx4Qvez : 59 fps
+```lua
+RNDX.Rect(x, y, 120, 36):Rad(math.huge):Color(80, 160, 255):Draw()
+```
 
-## 📜 License
+Rounded top corners only:
 
-RNDX is open-source and free to use. Feel free to contribute or report issues on GitHub!
+```lua
+RNDX.Rect(x, y, w, h):Radii(8, 8, 0, 0):Color(40, 40, 45):Draw()
+```
 
-Make sure to give credits!
+Card with a soft shadow:
 
----
+```lua
+RNDX.Rect(x, y, 300, 180):Rad(12):Shadow(30, 0, 0, 10):Draw() -- shadow
+RNDX.Rect(x, y, 300, 180):Rad(12):Color(35, 35, 40):Draw()    -- card
+```
 
-## 🌟 Credits
+Loading spinner:
 
-- [ficool2](https://github.com/ficool2) - For [sdk_screenspace_shaders](https://github.com/ficool2/sdk_screenspace_shaders) & finding out that we can use shaders in source engine games!
-- [Rubat](https://github.com/robotboy655) - For allowing us to use shaders in Garry's Mod!
-- [Svetov/Jaffies/FriendlyStealer](https://github.com/Jaffies) - For lots of help throughout the development of RNDX! Also suggested multiple stuff to improve the performance!
-- [Shadertoy Rounded Code](https://www.shadertoy.com/view/fsdyzB)
-- [Shadertoy Blur Code](https://www.shadertoy.com/view/Xd33Rf)
+```lua
+RNDX.Circle(x, y, 24)
+    :Color(255, 255, 255)
+    :Outline(4)
+    :Angles(0, 270)
+    :Rotation(CurTime() * 360 % 360)
+    :Draw()
+```
+
+Progress bar:
+
+```lua
+RNDX.Rect(x, y, 200, 8):Rad(4):Color(50, 50, 50):Draw()
+RNDX.Rect(x, y, 200 * progress, 8):Rad(4):Color(80, 160, 255):Draw()
+```
+
+Inside a panel:
+
+```lua
+function PANEL:Paint(w, h)
+    RNDX.Rect(0, 0, w, h):Rad(8):Color(30, 30, 30, 240):Blur():Draw()
+end
+```
+
+## Benchmarks (OLD)
+
+Benchmark with an FPS meter, not CPU frame time.
+
+3000 rounded boxes per frame:
+
+- RNDX: 140 FPS
+- draw.RoundedBox: 43 FPS
+
+150 blur panels (700x700):
+
+- Current RNDX: 107 FPS
+- Previous RNDX: 73 FPS
+- <https://pastebin.com/urx4Qvez>: 59 FPS
+
+## Credits
+
+- [ficool2](https://github.com/ficool2) - [sdk_screenspace_shaders](https://github.com/ficool2/sdk_screenspace_shaders) & finding out we can use shaders in source games
+- [Rubat](https://github.com/robotboy655) - for allowing shaders in Garry's Mod
+- [Svetov/Jaffies](https://github.com/Jaffies) - lots of help & performance ideas
+- [Shadertoy rounded box](https://www.shadertoy.com/view/fsdyzB), [Shadertoy blur](https://www.shadertoy.com/view/Xd33Rf), [Evan Wallace's shadow math](https://madebyevan.com/shaders/fast-rounded-rectangle-shadows/)
 - And AI because I don't understand how shaders work!
 
-**RNDX**: Because drawing rounded shapes should be simple, fast, and beautiful. 🎉
+## License
+
+MIT. Make sure to give credits!

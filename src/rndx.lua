@@ -21,8 +21,16 @@ local surface_DrawTexturedRect = surface.DrawTexturedRect
 local render_CopyRenderTargetToTexture = render.CopyRenderTargetToTexture
 local math_min = math.min
 local math_max = math.max
+local math_ceil = math.ceil
 local DisableClipping = DisableClipping
 local type = type
+local tobool = tobool
+
+local RNDX = {}
+
+---------------------------------------------------------------------------
+-- SHADERS
+---------------------------------------------------------------------------
 
 local SHADERS_VERSION = "SHADERS_VERSION_PLACEHOLDER"
 local SHADERS_GMA = [========[SHADERS_GMA_PLACEHOLDER]========]
@@ -50,6 +58,10 @@ local BLUR_RT = GetRenderTargetEx("RNDX" .. SHADERS_VERSION .. SysTime(),
 	IMAGE_FORMAT_BGRA8888
 )
 
+---------------------------------------------------------------------------
+-- FLAGS & CONSTANTS
+---------------------------------------------------------------------------
+
 local NEW_FLAG; do
 	local flags_n = -1
 	function NEW_FLAG()
@@ -64,10 +76,24 @@ local NO_TL, NO_TR, NO_BL, NO_BR           = NEW_FLAG(), NEW_FLAG(), NEW_FLAG(),
 local SHAPE_CIRCLE, SHAPE_FIGMA, SHAPE_IOS = NEW_FLAG(), NEW_FLAG(), NEW_FLAG()
 
 local BLUR                                 = NEW_FLAG()
+local MANUAL_COLOR                         = NEW_FLAG()
 
-local RNDX                                 = {}
+local SHAPES                               = {
+	[SHAPE_CIRCLE] = 2,
+	[SHAPE_FIGMA] = 2.2,
+	[SHAPE_IOS] = 4,
+}
 
-local shader_mat                           = [==[
+local DEFAULT_SHAPE                        = SHAPE_FIGMA
+local DEFAULT_BLUR_INTENSITY               = 1.0
+
+local BLUR_VERTICAL                        = "$c0_x"
+
+---------------------------------------------------------------------------
+-- MATERIALS
+---------------------------------------------------------------------------
+
+local BASE_VMT                             = [==[
 screenspace_general
 {
 	$pixshader ""
@@ -90,103 +116,120 @@ screenspace_general
 	$copyalpha                 0
 	$alpha_blend_color_overlay 0
 	$alpha_blend               1 // for AA
-	$linearwrite               1 // to disable broken gamma correction for colors
-	$linearread_basetexture    1 // to disable broken gamma correction for textures
-	$linearread_texture1       1 // to disable broken gamma correction for textures
-	$linearread_texture2       1 // to disable broken gamma correction for textures
-	$linearread_texture3       1 // to disable broken gamma correction for textures
 }
 ]==]
+
+-- correct gamma mode only: disables gmod's broken gamma correction
+local LINEAR_KVS                           = {
+	["$linearwrite"] = 1,
+	["$linearread_basetexture"] = 1,
+	["$linearread_texture1"] = 1,
+	["$linearread_texture2"] = 1,
+	["$linearread_texture3"] = 1,
+}
 
 local MATRIXES                             = {}
 
 local function create_shader_mat(name, opts)
 	assert(name and isstring(name), "create_shader_mat: tex must be a string")
-
-	local key_values = util.KeyValuesToTable(shader_mat, false, true)
-
+	local key_values = util.KeyValuesToTable(BASE_VMT, false, true)
 	if opts then
 		for k, v in pairs(opts) do
 			key_values[k] = v
 		end
 	end
-
 	local mat = CreateMaterial(
 		"rndx_shaders1" .. name .. SysTime(),
 		"screenspace_general",
 		key_values
 	)
-
 	MATRIXES[mat] = Matrix()
-
 	return mat
 end
 
-local ROUNDED_MAT = create_shader_mat("rounded", {
-	["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
-	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-})
-local ROUNDED_TEXTURE_MAT = create_shader_mat("rounded_texture", {
-	["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
-	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
-})
+-- legacy gamma: emulate gmod's normal (broken) gamma so colors match
+-- draw.RoundedBox & other addons; gamma is applied in the vertex shader instead
+local LEGACY_GAMMA = false
 
-local BLUR_VERTICAL = "$c0_x"
-local ROUNDED_BLUR_MAT = create_shader_mat("blur_horizontal", {
-	["$pixshader"] = GET_SHADER("rndx_rounded_blur_ps30"),
-	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = BLUR_RT:GetName(),
-	["$texture1"] = "_rt_FullFrameFB",
-})
+local ROUNDED_MAT, ROUNDED_TEXTURE_MAT, ROUNDED_BLUR_MAT, SHADOWS_MAT, SHADOWS_BLUR_MAT
 
-local SHADOWS_MAT = create_shader_mat("rounded_shadows", {
-	["$pixshader"] = GET_SHADER("rndx_shadows_ps30"),
-	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-})
+local function create_materials()
+	local vs = GET_SHADER(LEGACY_GAMMA and "rndx_vertex_gamma_vs30" or "rndx_vertex_vs30")
+	local suffix = LEGACY_GAMMA and "_gamma" or ""
 
-local SHADOWS_BLUR_MAT = create_shader_mat("shadows_blur_horizontal", {
-	["$pixshader"] = GET_SHADER("rndx_shadows_blur_ps30"),
-	["$vertexshader"] = GET_SHADER("rndx_vertex_vs30"),
-	["$basetexture"] = BLUR_RT:GetName(),
-	["$texture1"] = "_rt_FullFrameFB",
-})
+	local function make(name, opts)
+		if not LEGACY_GAMMA then
+			for k, v in pairs(LINEAR_KVS) do
+				opts[k] = v
+			end
+		end
+		opts["$vertexshader"] = vs
+		return create_shader_mat(name .. suffix, opts)
+	end
 
-local SHAPES = {
-	[SHAPE_CIRCLE] = 2,
-	[SHAPE_FIGMA] = 2.2,
-	[SHAPE_IOS] = 4,
-}
-local DEFAULT_SHAPE = SHAPE_FIGMA
-local DEFAULT_BLUR_INTENSITY = 1.0
+	ROUNDED_MAT = make("rounded", {
+		["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
+	})
+	ROUNDED_TEXTURE_MAT = make("rounded_texture", {
+		["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
+		["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
+	})
+	ROUNDED_BLUR_MAT = make("blur_horizontal", {
+		["$pixshader"] = GET_SHADER("rndx_rounded_blur_ps30"),
+		["$basetexture"] = BLUR_RT:GetName(),
+		["$texture1"] = "_rt_FullFrameFB",
+	})
+	SHADOWS_MAT = make("rounded_shadows", {
+		["$pixshader"] = GET_SHADER("rndx_shadows_ps30"),
+	})
+	SHADOWS_BLUR_MAT = make("shadows_blur_horizontal", {
+		["$pixshader"] = GET_SHADER("rndx_shadows_blur_ps30"),
+		["$basetexture"] = BLUR_RT:GetName(),
+		["$texture1"] = "_rt_FullFrameFB",
+	})
+end
+
+create_materials()
 
 local MATERIAL_SetTexture = ROUNDED_MAT.SetTexture
 local MATERIAL_SetMatrix = ROUNDED_MAT.SetMatrix
 local MATERIAL_SetFloat = ROUNDED_MAT.SetFloat
 local MATRIX_SetUnpacked = Matrix().SetUnpacked
 
+---------------------------------------------------------------------------
+-- DRAW STATE
+---------------------------------------------------------------------------
+
 local MAT
 local X, Y, W, H
 local TL, TR, BL, BR
 local TEXTURE
 local USING_BLUR, BLUR_INTENSITY
-local COL_R, COL_G, COL_B, COL_A
+local COL_SET, COL_R, COL_G, COL_B, COL_A
 local SHAPE, OUTLINE_THICKNESS
 local START_ANGLE, END_ANGLE, ROTATION
 local CLIP_PANEL
-local SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY
+local SHADOW_ENABLED, SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY
+local SHADOW_SIGMA, SHADOW_PAD
+
 local function RESET_PARAMS()
 	MAT = nil
 	X, Y, W, H = 0, 0, 0, 0
 	TL, TR, BL, BR = 0, 0, 0, 0
 	TEXTURE = nil
 	USING_BLUR, BLUR_INTENSITY = false, DEFAULT_BLUR_INTENSITY
-	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
+	COL_SET, COL_R, COL_G, COL_B, COL_A = false, 255, 255, 255, 255
 	SHAPE, OUTLINE_THICKNESS = SHAPES[DEFAULT_SHAPE], -1
 	START_ANGLE, END_ANGLE, ROTATION = 0, 360, 0
 	CLIP_PANEL = nil
-	SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY = false, 0, 0
+	SHADOW_ENABLED = false
+	SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY = 0, 0, 0, 0
+	SHADOW_SIGMA, SHADOW_PAD = 0, 0
 end
+
+---------------------------------------------------------------------------
+-- INTERNAL DRAWING
+---------------------------------------------------------------------------
 
 local normalize_corner_radii; do
 	local HUGE = math.huge
@@ -197,8 +240,6 @@ local normalize_corner_radii; do
 		if x == HUGE then return lim end
 		return x
 	end
-
-	local function clamp0(x) return x < 0 and 0 or x end
 
 	function normalize_corner_radii()
 		local TL, TR, BL, BR = nzr(TL), nzr(TR), nzr(BL), nzr(BR)
@@ -216,7 +257,7 @@ local normalize_corner_radii; do
 			TL, TR, BL, BR = TL * inv, TR * inv, BL * inv, BR * inv
 		end
 
-		return clamp0(TL), clamp0(TR), clamp0(BL), clamp0(BR)
+		return math_max(TL, 0), math_max(TR, 0), math_max(BL, 0), math_max(BR, 0)
 	end
 end
 
@@ -238,9 +279,9 @@ local function SetupDraw()
 		matrix,
 
 		BL, W, OUTLINE_THICKNESS or -1, sweep_rad,
-		BR, H, SHADOW_INTENSITY, ROTATION,
+		BR, H, SHADOW_SIGMA, ROTATION,
 		TR, SHAPE, BLUR_INTENSITY or 1.0, 0,
-		TL, TEXTURE and 1 or 0, start_rad, 0
+		TL, TEXTURE and 1 or 0, start_rad, SHADOW_PAD
 	)
 	MATERIAL_SetMatrix(MAT, "$viewprojmat", matrix)
 
@@ -251,97 +292,8 @@ local function SetupDraw()
 	surface_SetMaterial(MAT)
 end
 
-local MANUAL_COLOR = NEW_FLAG()
-local DEFAULT_DRAW_FLAGS = DEFAULT_SHAPE
-
-local function draw_rounded(x, y, w, h, col, flags, tl, tr, bl, br, texture, thickness)
-	if col and col.a == 0 then
-		return
-	end
-
-	RESET_PARAMS()
-
-	if not flags then
-		flags = DEFAULT_DRAW_FLAGS
-	end
-
-	local using_blur = bit_band(flags, BLUR) ~= 0
-	if using_blur then
-		return RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
-	end
-
-	MAT = ROUNDED_MAT; if texture then
-		MAT = ROUNDED_TEXTURE_MAT
-		MATERIAL_SetTexture(MAT, "$basetexture", texture)
-		TEXTURE = texture
-	end
-
-	W, H = w, h
-	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
-		bit_band(flags, NO_TR) == 0 and tr or 0,
-		bit_band(flags, NO_BL) == 0 and bl or 0,
-		bit_band(flags, NO_BR) == 0 and br or 0
-	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
-	OUTLINE_THICKNESS = thickness
-
-	if bit_band(flags, MANUAL_COLOR) ~= 0 then
-		COL_R = nil
-	elseif col then
-		COL_R, COL_G, COL_B, COL_A = col.r, col.g, col.b, col.a
-	else
-		COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
-	end
-
-	SetupDraw()
-
-	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
-	-- fixes setting $basetexture to ""(none) not working correctly
-	return surface_DrawTexturedRectUV(x, y, w, h, -0.015625, -0.015625, 1.015625, 1.015625)
-end
-
-function RNDX.Draw(r, x, y, w, h, col, flags)
-	return draw_rounded(x, y, w, h, col, flags, r, r, r, r)
-end
-
-function RNDX.DrawOutlined(r, x, y, w, h, col, thickness, flags)
-	return draw_rounded(x, y, w, h, col, flags, r, r, r, r, nil, thickness or 1)
-end
-
-function RNDX.DrawTexture(r, x, y, w, h, col, texture, flags)
-	return draw_rounded(x, y, w, h, col, flags, r, r, r, r, texture)
-end
-
-function RNDX.DrawMaterial(r, x, y, w, h, col, mat, flags)
-	local tex = mat:GetTexture("$basetexture")
-	if tex then
-		return RNDX.DrawTexture(r, x, y, w, h, col, tex, flags)
-	end
-end
-
-function RNDX.DrawCircle(x, y, r, col, flags)
-	return RNDX.Draw(r / 2, x - r / 2, y - r / 2, r, r, col, (flags or 0) + SHAPE_CIRCLE)
-end
-
-function RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)
-	return RNDX.DrawOutlined(r / 2, x - r / 2, y - r / 2, r, r, col, thickness, (flags or 0) + SHAPE_CIRCLE)
-end
-
-function RNDX.DrawCircleTexture(x, y, r, col, texture, flags)
-	return RNDX.DrawTexture(r / 2, x - r / 2, y - r / 2, r, r, col, texture, (flags or 0) + SHAPE_CIRCLE)
-end
-
-function RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)
-	return RNDX.DrawMaterial(r / 2, x - r / 2, y - r / 2, r, r, col, mat, (flags or 0) + SHAPE_CIRCLE)
-end
-
-local USE_SHADOWS_BLUR = false
-
-local function draw_blur()
-	if USE_SHADOWS_BLUR then
-		MAT = SHADOWS_BLUR_MAT
-	else
-		MAT = ROUNDED_BLUR_MAT
-	end
+local function draw_blur(shadow)
+	MAT = shadow and SHADOWS_BLUR_MAT or ROUNDED_BLUR_MAT
 
 	COL_R, COL_G, COL_B, COL_A = 255, 255, 255, 255
 	SetupDraw()
@@ -355,107 +307,40 @@ local function draw_blur()
 	surface_DrawTexturedRect(X, Y, W, H)
 end
 
-function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
-	RESET_PARAMS()
-
-	if not flags then
-		flags = DEFAULT_DRAW_FLAGS
-	end
-
-	X, Y = x, y
-	W, H = w, h
-	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
-		bit_band(flags, NO_TR) == 0 and tr or 0,
-		bit_band(flags, NO_BL) == 0 and bl or 0,
-		bit_band(flags, NO_BR) == 0 and br or 0
-	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
-	OUTLINE_THICKNESS = thickness
-
-	draw_blur()
-end
-
 local function setup_shadows()
-	X = X - SHADOW_SPREAD
-	Y = Y - SHADOW_SPREAD
-	W = W + (SHADOW_SPREAD * 2)
-	H = H + (SHADOW_SPREAD * 2)
-
-	TL = TL + (SHADOW_SPREAD * 2)
-	TR = TR + (SHADOW_SPREAD * 2)
-	BL = BL + (SHADOW_SPREAD * 2)
-	BR = BR + (SHADOW_SPREAD * 2)
-end
-
-local function draw_shadows(r, g, b, a)
-	if USING_BLUR then
-		USE_SHADOWS_BLUR = true
-		draw_blur()
-		USE_SHADOWS_BLUR = false
+	-- css-style spread: grow the shape uniformly, radii follow
+	if SHADOW_SPREAD ~= 0 then
+		X = X - SHADOW_SPREAD
+		Y = Y - SHADOW_SPREAD
+		W = W + SHADOW_SPREAD * 2
+		H = H + SHADOW_SPREAD * 2
+		TL = math_max(TL + SHADOW_SPREAD, 0)
+		TR = math_max(TR + SHADOW_SPREAD, 0)
+		BL = math_max(BL + SHADOW_SPREAD, 0)
+		BR = math_max(BR + SHADOW_SPREAD, 0)
 	end
 
-	MAT = SHADOWS_MAT
+	-- css-style offset
+	X = X + SHADOW_OX
+	Y = Y + SHADOW_OY
 
-	if r == false then
-		COL_R = nil
-	else
-		COL_R, COL_G, COL_B, COL_A = r, g, b, a
-	end
+	-- derive gaussian sigma from blur, pad the quad so the falloff fits
+	local sigma = SHADOW_BLUR * 0.5
+	if sigma < 0.0001 then sigma = 0.0001 end
+	local pad = math_ceil(sigma * 3)
 
-	SetupDraw()
-	-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
-	-- fixes having no $basetexture causing uv to be broken
-	surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
+	X = X - pad
+	Y = Y - pad
+	W = W + pad * 2
+	H = H + pad * 2
+
+	SHADOW_SIGMA = sigma
+	SHADOW_PAD = pad
 end
 
-function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)
-	if col and col.a == 0 then
-		return
-	end
-
-	local OLD_CLIPPING_STATE = DisableClipping(true)
-
-	RESET_PARAMS()
-
-	if not flags then
-		flags = DEFAULT_DRAW_FLAGS
-	end
-
-	X, Y = x, y
-	W, H = w, h
-	SHADOW_SPREAD = spread or 30
-	SHADOW_INTENSITY = intensity or SHADOW_SPREAD * 1.2
-
-	TL, TR, BL, BR = bit_band(flags, NO_TL) == 0 and tl or 0,
-		bit_band(flags, NO_TR) == 0 and tr or 0,
-		bit_band(flags, NO_BL) == 0 and bl or 0,
-		bit_band(flags, NO_BR) == 0 and br or 0
-
-	SHAPE = SHAPES[bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)] or SHAPES[DEFAULT_SHAPE]
-
-	OUTLINE_THICKNESS = thickness
-
-	setup_shadows()
-
-	USING_BLUR = bit_band(flags, BLUR) ~= 0
-
-	if bit_band(flags, MANUAL_COLOR) ~= 0 then
-		draw_shadows(false, nil, nil, nil)
-	elseif col then
-		draw_shadows(col.r, col.g, col.b, col.a)
-	else
-		draw_shadows(0, 0, 0, 255)
-	end
-
-	DisableClipping(OLD_CLIPPING_STATE)
-end
-
-function RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)
-	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
-end
-
-function RNDX.DrawShadowsOutlined(r, x, y, w, h, col, thickness, spread, intensity, flags)
-	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity, thickness or 1)
-end
+---------------------------------------------------------------------------
+-- BUILDER
+---------------------------------------------------------------------------
 
 local BASE_FUNCS; BASE_FUNCS = {
 	Rad = function(self, rad)
@@ -478,14 +363,15 @@ local BASE_FUNCS; BASE_FUNCS = {
 		return self
 	end,
 	Outline = function(self, thickness)
-		OUTLINE_THICKNESS = thickness
+		OUTLINE_THICKNESS = thickness or 1
 		return self
 	end,
 	Shape = function(self, shape)
-		SHAPE = SHAPES[shape] or 2.2
+		SHAPE = SHAPES[shape] or SHAPES[DEFAULT_SHAPE]
 		return self
 	end,
 	Color = function(self, col_or_r, g, b, a)
+		COL_SET = true
 		if type(col_or_r) == "number" then
 			COL_R, COL_G, COL_B, COL_A = col_or_r, g or 255, b or 255, a or 255
 		else
@@ -493,28 +379,32 @@ local BASE_FUNCS; BASE_FUNCS = {
 		end
 		return self
 	end,
+	ManualColor = function(self)
+		COL_SET, COL_R = true, nil
+		return self
+	end,
 	Blur = function(self, intensity)
 		if not intensity then
 			intensity = DEFAULT_BLUR_INTENSITY
 		end
-		intensity = math_max(intensity, 0)
-		USING_BLUR, BLUR_INTENSITY = true, intensity
+		USING_BLUR, BLUR_INTENSITY = true, math_max(intensity, 0)
 		return self
 	end,
 	Rotation = function(self, angle)
 		ROTATION = math.rad(angle or 0)
 		return self
 	end,
-	StartAngle = function(self, angle)
-		START_ANGLE = angle or 0
+	Angles = function(self, start_angle, end_angle)
+		START_ANGLE = start_angle or 0
+		END_ANGLE = end_angle or 360
 		return self
 	end,
-	EndAngle = function(self, angle)
-		END_ANGLE = angle or 360
-		return self
-	end,
-	Shadow = function(self, spread, intensity)
-		SHADOW_ENABLED, SHADOW_SPREAD, SHADOW_INTENSITY = true, spread or 30, intensity or (spread or 30) * 1.2
+	Shadow = function(self, blur, spread, offset_x, offset_y)
+		SHADOW_ENABLED = true
+		SHADOW_BLUR = math_max(blur or 20, 0)
+		SHADOW_SPREAD = spread or 0
+		SHADOW_OX = offset_x or 0
+		SHADOW_OY = offset_y or 0
 		return self
 	end,
 	Clip = function(self, pnl)
@@ -525,18 +415,10 @@ local BASE_FUNCS; BASE_FUNCS = {
 		flags = flags or 0
 
 		-- Corner flags
-		if bit_band(flags, NO_TL) ~= 0 then
-			TL = 0
-		end
-		if bit_band(flags, NO_TR) ~= 0 then
-			TR = 0
-		end
-		if bit_band(flags, NO_BL) ~= 0 then
-			BL = 0
-		end
-		if bit_band(flags, NO_BR) ~= 0 then
-			BR = 0
-		end
+		if bit_band(flags, NO_TL) ~= 0 then TL = 0 end
+		if bit_band(flags, NO_TR) ~= 0 then TR = 0 end
+		if bit_band(flags, NO_BL) ~= 0 then BL = 0 end
+		if bit_band(flags, NO_BR) ~= 0 then BR = 0 end
 
 		-- Shape flags
 		local shape_flag = bit_band(flags, SHAPE_CIRCLE + SHAPE_FIGMA + SHAPE_IOS)
@@ -557,25 +439,7 @@ local BASE_FUNCS; BASE_FUNCS = {
 		return self
 	end,
 
-}
-
-local RECT = {
-	Rad         = BASE_FUNCS.Rad,
-	Radii       = BASE_FUNCS.Radii,
-	Texture     = BASE_FUNCS.Texture,
-	Material    = BASE_FUNCS.Material,
-	Outline     = BASE_FUNCS.Outline,
-	Shape       = BASE_FUNCS.Shape,
-	Color       = BASE_FUNCS.Color,
-	Blur        = BASE_FUNCS.Blur,
-	Rotation    = BASE_FUNCS.Rotation,
-	StartAngle  = BASE_FUNCS.StartAngle,
-	EndAngle    = BASE_FUNCS.EndAngle,
-	Clip        = BASE_FUNCS.Clip,
-	Shadow      = BASE_FUNCS.Shadow,
-	Flags       = BASE_FUNCS.Flags,
-
-	Draw        = function(self)
+	Draw = function(self)
 		if END_ANGLE == START_ANGLE then
 			return -- nothing to draw
 		end
@@ -593,8 +457,20 @@ local RECT = {
 		end
 
 		if SHADOW_ENABLED then
+			if not COL_SET then
+				COL_R, COL_G, COL_B, COL_A = 0, 0, 0, 255 -- shadows default to black
+			end
 			setup_shadows()
-			draw_shadows(COL_R, COL_G, COL_B, COL_A)
+
+			if USING_BLUR then
+				local r, g, b, a = COL_R, COL_G, COL_B, COL_A
+				draw_blur(true)
+				COL_R, COL_G, COL_B, COL_A = r, g, b, a
+			end
+
+			MAT = SHADOWS_MAT
+			SetupDraw()
+			surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
 		elseif USING_BLUR then
 			draw_blur()
 		else
@@ -604,6 +480,8 @@ local RECT = {
 			end
 
 			SetupDraw()
+			-- https://github.com/Jaffies/rboxes/blob/main/rboxes.lua
+			-- fixes setting $basetexture to ""(none) not working correctly
 			surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
 		end
 
@@ -631,48 +509,58 @@ local RECT = {
 	end,
 }
 
-local CIRCLE = {
-	Texture = BASE_FUNCS.Texture,
-	Material = BASE_FUNCS.Material,
-	Outline = BASE_FUNCS.Outline,
-	Color = BASE_FUNCS.Color,
-	Blur = BASE_FUNCS.Blur,
-	Rotation = BASE_FUNCS.Rotation,
-	StartAngle = BASE_FUNCS.StartAngle,
-	EndAngle = BASE_FUNCS.EndAngle,
-	Clip = BASE_FUNCS.Clip,
-	Shadow = BASE_FUNCS.Shadow,
-	Flags = BASE_FUNCS.Flags,
-
-	Draw = RECT.Draw,
-	GetMaterial = RECT.GetMaterial,
-}
-
-local TYPES = {
-	Rect = function(x, y, w, h)
-		RESET_PARAMS()
-		MAT = ROUNDED_MAT
-		X, Y, W, H = x, y, w, h
-		return RECT
-	end,
-	Circle = function(x, y, r)
-		RESET_PARAMS()
-		MAT = ROUNDED_MAT
-		SHAPE = SHAPES[SHAPE_CIRCLE]
-		X, Y, W, H = x - r / 2, y - r / 2, r, r
-		r = r / 2
-		TL, TR, BL, BR = r, r, r, r
-		return CIRCLE
+local RECT, CIRCLE = {}, {}
+for k, v in pairs(BASE_FUNCS) do
+	RECT[k] = v
+	-- circles don't have corner radii
+	if k ~= "Rad" and k ~= "Radii" then
+		CIRCLE[k] = v
 	end
-}
+end
 
-setmetatable(RNDX, {
-	__call = function()
-		return TYPES
-	end
-})
+---------------------------------------------------------------------------
+-- PUBLIC API
+---------------------------------------------------------------------------
 
--- Flags
+function RNDX.Rect(x, y, w, h)
+	RESET_PARAMS()
+	MAT = ROUNDED_MAT
+	X, Y, W, H = x, y, w, h
+	return RECT
+end
+
+function RNDX.Circle(x, y, radius)
+	RESET_PARAMS()
+	MAT = ROUNDED_MAT
+	SHAPE = SHAPES[SHAPE_CIRCLE]
+	local d = radius * 2
+	X, Y, W, H = x - radius, y - radius, d, d
+	TL, TR, BL, BR = radius, radius, radius, radius
+	return CIRCLE
+end
+
+-- match gmod's default (broken) gamma so colors look the same as
+-- draw.RoundedBox & other addons
+function RNDX.SetLegacyGamma(enabled)
+	enabled = tobool(enabled)
+	if enabled == LEGACY_GAMMA then return end
+	LEGACY_GAMMA = enabled
+	create_materials()
+end
+
+function RNDX.SetDefaultShape(shape)
+	DEFAULT_SHAPE = shape or SHAPE_FIGMA
+end
+
+function RNDX.SetDefaultBlurIntensity(val)
+	DEFAULT_BLUR_INTENSITY = math_max(0, tonumber(val) or 1.0)
+end
+
+function RNDX.GetDefaultBlurIntensity()
+	return DEFAULT_BLUR_INTENSITY
+end
+
+-- Flags for :Flags()
 RNDX.NO_TL = NO_TL
 RNDX.NO_TR = NO_TR
 RNDX.NO_BL = NO_BL
@@ -692,19 +580,6 @@ function RNDX.SetFlag(flags, flag, bool)
 	else
 		return bit.band(flags, bit.bnot(flag))
 	end
-end
-
-function RNDX.SetDefaultShape(shape)
-	DEFAULT_SHAPE = shape or SHAPE_FIGMA
-	DEFAULT_DRAW_FLAGS = DEFAULT_SHAPE
-end
-
-function RNDX.SetDefaultBlurIntensity(val)
-	DEFAULT_BLUR_INTENSITY = math_max(0, tonumber(val) or 1.0)
-end
-
-function RNDX.GetDefaultBlurIntensity()
-	return DEFAULT_BLUR_INTENSITY
 end
 
 return RNDX

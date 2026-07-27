@@ -1,11 +1,11 @@
-#include "common_rounded.hlsl"
+#include "shadows.hlsl"
 
-float4 main(PS_INPUT i) : COLOR {
-    float alpha = calculate_smooth_rounded_alpha(i);
+float4 main(PS_INPUT i) : COLOR
+{
+    float shadow = calculate_shadow(i);
 
-	if (alpha <= 0.0f)
-		discard;
-		
-    float4 rect_color = i.color;
-    return float4(rect_color.rgb, rect_color.a * alpha);
+    if (shadow <= 0.002)
+        discard;
+
+    return float4(i.color.rgb, i.color.a * shadow);
 }
