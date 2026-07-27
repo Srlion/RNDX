@@ -73,12 +73,10 @@ float rounded_arc_sdf(float2 p, float2 b, float4 r) {
     return max(box_dist, angular_dist);
 }
 
-static const float2 RGSS[4] = {
-    float2(0.125, 0.375),
-    float2(-0.375, 0.125),
-    float2(-0.125, -0.375),
-    float2(0.375, -0.125)
-};
+float sdf_coverage(float dist) {
+    float grad_len = clamp(length(float2(ddx(dist), ddy(dist))), 0.7, 1.5);
+    return saturate(0.5 - dist / grad_len);
+}
 
 float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos) {
     float2 screen_pos = i.uv.xy * SIZE;
@@ -87,36 +85,19 @@ float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos) {
     float2 centered = rotate_point(screen_pos - half_size);
     out_centered_pos = centered;
 
-    float2 dx = ddx(centered);
-    float2 dy = ddy(centered);
-
-    float d0 = rounded_arc_sdf(centered, half_size, RADIUS);
-    float grad_len = clamp(length(float2(ddx(d0), ddy(d0))), 0.7, 1.5);
+    float dist_outer = rounded_arc_sdf(centered, half_size, RADIUS);
 
     float2 inner_half = max(half_size - OUTLINE_THICKNESS, 0.0);
     float4 inner_rad = max(RADIUS - OUTLINE_THICKNESS, 0.0);
+    float dist_inner = rounded_box_sdf(centered, inner_half, inner_rad);
 
-    float outer = 0.0;
-    float inner = 0.0;
+    float aa_outer = sdf_coverage(dist_outer);
+    float aa_inner = sdf_coverage(dist_inner);
 
-    [unroll]
-    for (int s = 0; s < 4; s++)
-    {
-        float2 p = centered + RGSS[s].x * dx + RGSS[s].y * dy;
-
-        float d = rounded_arc_sdf(p, half_size, RADIUS);
-        outer += saturate(0.5 - d / grad_len);
-
-        float di = rounded_box_sdf(p, inner_half, inner_rad);
-        inner += saturate(0.5 - di / grad_len);
-    }
-
-    outer *= 0.25;
     if (OUTLINE_THICKNESS < 0)
-        return outer;
+        return aa_outer;
 
-    inner *= 0.25;
-    return saturate(outer - inner);
+    return saturate(aa_outer - aa_inner);
 }
 
 float calculate_smooth_rounded_alpha(PS_INPUT i) {
