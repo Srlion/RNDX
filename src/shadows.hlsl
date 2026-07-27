@@ -5,8 +5,10 @@
 
 #include "common_rounded.hlsl"
 
-#define SHADOW_SIGMA g_viewProjMatrix[2].y
-#define SHADOW_PAD g_viewProjMatrix[3].w
+#define SHADOW_SIGMA g_viewProjMatrix[2].y // aliases AA (shadows don't AA)
+#define SHADOW_SPREAD g_viewProjMatrix[3].z
+#define SHADOW_OX Constants0.y
+#define SHADOW_OY Constants0.z
 
 float2 erf2(float2 x)
 {
@@ -38,6 +40,16 @@ float pick_corner_radius(float2 p, float4 r)
         quadrant.x);
 }
 
+float grow_radius(float r, float s)
+{
+    if (r <= 0.0)
+        return 0.0;
+    if (s <= 0.0 || r >= s)
+        return max(r + s, 0.0);
+    float t = r / s - 1.0;
+    return r + s * (1.0 + t * t * t);
+}
+
 float rounded_shadow(float2 p, float2 half_size, float4 radius, float sigma)
 {
     float corner = min(pick_corner_radius(p, radius), min(half_size.x, half_size.y));
@@ -67,17 +79,43 @@ float calculate_shadow(PS_INPUT i)
     float2 p = rotate_point(screen_pos - SIZE * 0.5);
 
     float sigma = max(SHADOW_SIGMA, 0.0001);
-    float2 box_half = max(SIZE * 0.5 - SHADOW_PAD, 0.0);
+    float s = SHADOW_SPREAD;
 
-    float shadow = rounded_shadow(p, box_half, RADIUS, sigma);
+    float2 box_half = max(SIZE * 0.5 - PAD, 0.0);
+
+    float4 grown_radius = float4(
+        grow_radius(RADIUS.x, s), grow_radius(RADIUS.y, s),
+        grow_radius(RADIUS.z, s), grow_radius(RADIUS.w, s));
+
+    float shadow = rounded_shadow(p, box_half, grown_radius, sigma);
 
     // outlined shadows: subtract the blurred inner box -> soft ring
     if (OUTLINE_THICKNESS >= 0)
     {
         float2 inner_half = max(box_half - OUTLINE_THICKNESS, 0.0);
-        float4 inner_radius = max(RADIUS - OUTLINE_THICKNESS, 0.0);
+        float4 inner_radius = max(grown_radius - OUTLINE_THICKNESS, 0.0);
         shadow -= rounded_shadow(p, inner_half, inner_radius, sigma);
     }
+
+    if (SWEEP_ANGLE >= 0.0)
+    {
+        float rel = fmod(atan2(p.y, p.x) - START_ANGLE + TWO_PI * 2.0, TWO_PI);
+
+        float angular_dist;
+        if (rel <= SWEEP_ANGLE)
+            angular_dist = -min(rel, SWEEP_ANGLE - rel) * length(p);
+        else
+            angular_dist = min(TWO_PI - rel, rel - SWEEP_ANGLE) * length(p);
+
+        shadow *= 0.5 - 0.5 * erf2(float2(angular_dist, 0) * (0.70710678 / sigma)).x;
+    }
+
+    float2 elem_p = p + rotate_point(float2(SHADOW_OX, SHADOW_OY));
+    float2 elem_half = max(box_half - s, 0.0);
+    float4 elem_r = min(RADIUS, min(elem_half.x, elem_half.y));
+
+    float d = rounded_arc_sdf(elem_p, elem_half, elem_r);
+    shadow *= 1.0 - blended_AA(d + 1.0, screen_pos);
 
     return saturate(shadow);
 }
