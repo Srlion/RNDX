@@ -81,7 +81,7 @@ RNDX.SetLegacyGamma(true) -- match gmod's default (broken) gamma, so colors look
 
 ## Showcase
 
-![Showcase](.github/images/showcase.webm)
+![Showcase](.github/images/showcase.gif)
 
 ```lua
 surface.CreateFont("RNDX_Label", {
