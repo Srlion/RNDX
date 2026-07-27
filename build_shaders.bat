@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "File=compile_shader_list.txt"
+set "File=compile_shader_list_build.txt"
 
 set "validVersions=20b 30"
 set "fallbackVersion=20b"

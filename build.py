@@ -50,7 +50,44 @@ class GMAWriter:
         return buffer.getvalue()
 
 
+# Feature bit order. MUST match the F_ constants in src/rndx.lua:
+# bit 0 (1) = TEXTURE, bit 1 (2) = OUTLINE, bit 2 (4) = ARC, bit 3 (8) = POW
+FEATURES = ["TEXTURE", "OUTLINE", "ARC", "POW"]
+
+STATIC_LIST = "compile_shader_list.txt"
+BUILD_LIST = "compile_shader_list_build.txt"
+
+
+def generate_variants():
+    variant_lines = []
+
+    for mask in range(1 << len(FEATURES)):
+        defines = "\n".join(
+            f"#define FEATURE_{feat} {1 if mask & (1 << i) else 0}"
+            for i, feat in enumerate(FEATURES)
+        )
+        fname = f"rndx_rounded_v{mask}_psxx.hlsl"
+        path = os.path.join("src", fname)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(defines + "\n" + '#include "rndx_rounded_body.hlsl"\n')
+        variant_lines.append(f"{fname} -v-30")
+
+    if not os.path.exists(STATIC_LIST):
+        print(f"Error: The file '{STATIC_LIST}' does not exist.")
+        sys.exit(1)
+
+    with open(STATIC_LIST, "r", encoding="utf-8") as f:
+        static_content = f.read()
+
+    with open(BUILD_LIST, "w", encoding="utf-8") as f:
+        f.write(static_content.rstrip() + "\n\n" + "\n".join(variant_lines) + "\n")
+
+    print(f"Generated {1 << len(FEATURES)} rounded shader variants.")
+
+
 def main():
+    generate_variants()
+
     os.system("build_shaders.bat")
 
     version = str(int(time.time()))

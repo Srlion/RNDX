@@ -89,6 +89,14 @@ local DEFAULT_BLUR_INTENSITY               = 1.0
 
 local BLUR_VERTICAL                        = "$c0_x"
 
+-- pixel shader variant feature bits
+-- MUST match FEATURES order in build.py: bit i = feature i
+local F_TEXTURE                            = 1
+local F_OUTLINE                            = 2
+local F_ARC                                = 4
+local F_POW                                = 8
+local VARIANT_COUNT                        = 16 -- 2 ^ number of features
+
 ---------------------------------------------------------------------------
 -- MATERIALS
 ---------------------------------------------------------------------------
@@ -151,38 +159,50 @@ end
 -- draw.RoundedBox & other addons; gamma is applied in the vertex shader instead
 local LEGACY_GAMMA = false
 
-local ROUNDED_MAT, ROUNDED_TEXTURE_MAT, ROUNDED_BLUR_MAT, SHADOWS_MAT, SHADOWS_BLUR_MAT
+local ROUNDED_BLUR_MAT, SHADOWS_MAT, SHADOWS_BLUR_MAT
+
+-- lazily-created rounded pixel shader variants, keyed by feature mask
+local VARIANT_MATS = {}
+
+local function build_mat(name, opts)
+	if not LEGACY_GAMMA then
+		for k, v in pairs(LINEAR_KVS) do
+			opts[k] = v
+		end
+	end
+	opts["$vertexshader"] = GET_SHADER(LEGACY_GAMMA and "rndx_vertex_gamma_vs30" or "rndx_vertex_vs30")
+	return create_shader_mat(name .. (LEGACY_GAMMA and "_gamma" or ""), opts)
+end
+
+local function get_rounded_mat(mask)
+	local mat = VARIANT_MATS[mask]
+	if not mat then
+		local opts = {
+			["$pixshader"] = GET_SHADER("rndx_rounded_v" .. mask .. "_ps30"),
+		}
+		if bit_band(mask, F_TEXTURE) ~= 0 then
+			-- if there is no base texture, you can't change it later
+			opts["$basetexture"] = "loveyoumom"
+		end
+		mat = build_mat("rounded_v" .. mask, opts)
+		VARIANT_MATS[mask] = mat
+	end
+	return mat
+end
 
 local function create_materials()
-	local vs = GET_SHADER(LEGACY_GAMMA and "rndx_vertex_gamma_vs30" or "rndx_vertex_vs30")
-	local suffix = LEGACY_GAMMA and "_gamma" or ""
+	-- drop old variants so they get rebuilt with the new gamma mode
+	VARIANT_MATS = {}
 
-	local function make(name, opts)
-		if not LEGACY_GAMMA then
-			for k, v in pairs(LINEAR_KVS) do
-				opts[k] = v
-			end
-		end
-		opts["$vertexshader"] = vs
-		return create_shader_mat(name .. suffix, opts)
-	end
-
-	ROUNDED_MAT = make("rounded", {
-		["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
-	})
-	ROUNDED_TEXTURE_MAT = make("rounded_texture", {
-		["$pixshader"] = GET_SHADER("rndx_rounded_ps30"),
-		["$basetexture"] = "loveyoumom", -- if there is no base texture, you can't change it later
-	})
-	ROUNDED_BLUR_MAT = make("blur_horizontal", {
+	ROUNDED_BLUR_MAT = build_mat("blur_horizontal", {
 		["$pixshader"] = GET_SHADER("rndx_rounded_blur_ps30"),
 		["$basetexture"] = BLUR_RT:GetName(),
 		["$texture1"] = "_rt_FullFrameFB",
 	})
-	SHADOWS_MAT = make("rounded_shadows", {
+	SHADOWS_MAT = build_mat("rounded_shadows", {
 		["$pixshader"] = GET_SHADER("rndx_shadows_ps30"),
 	})
-	SHADOWS_BLUR_MAT = make("shadows_blur_horizontal", {
+	SHADOWS_BLUR_MAT = build_mat("shadows_blur_horizontal", {
 		["$pixshader"] = GET_SHADER("rndx_shadows_blur_ps30"),
 		["$basetexture"] = BLUR_RT:GetName(),
 		["$texture1"] = "_rt_FullFrameFB",
@@ -191,10 +211,16 @@ end
 
 create_materials()
 
-local MATERIAL_SetTexture = ROUNDED_MAT.SetTexture
-local MATERIAL_SetMatrix = ROUNDED_MAT.SetMatrix
-local MATERIAL_SetFloat = ROUNDED_MAT.SetFloat
+local MATERIAL_SetTexture = SHADOWS_MAT.SetTexture
+local MATERIAL_SetMatrix = SHADOWS_MAT.SetMatrix
+local MATERIAL_SetFloat = SHADOWS_MAT.SetFloat
 local MATRIX_SetUnpacked = Matrix().SetUnpacked
+
+function RNDX.WarmupMaterials()
+	for mask = 0, VARIANT_COUNT - 1 do
+		get_rounded_mat(mask)
+	end
+end
 
 ---------------------------------------------------------------------------
 -- DRAW STATE
@@ -230,6 +256,24 @@ end
 ---------------------------------------------------------------------------
 -- INTERNAL DRAWING
 ---------------------------------------------------------------------------
+
+-- pick the cheapest rounded pixel shader for the current draw state
+local function select_rounded_mat()
+	local mask = 0
+	if TEXTURE then
+		mask = mask + F_TEXTURE
+	end
+	if OUTLINE_THICKNESS and OUTLINE_THICKNESS >= 0 then
+		mask = mask + F_OUTLINE
+	end
+	if (END_ANGLE - START_ANGLE) < 360 then
+		mask = mask + F_ARC
+	end
+	if SHAPE ~= 2 then -- power 2 = true circle = plain length(), no pow needed
+		mask = mask + F_POW
+	end
+	return get_rounded_mat(mask)
+end
 
 local normalize_corner_radii; do
 	local HUGE = math.huge
@@ -474,8 +518,9 @@ local BASE_FUNCS; BASE_FUNCS = {
 		elseif USING_BLUR then
 			draw_blur()
 		else
+			MAT = select_rounded_mat()
+
 			if TEXTURE then
-				MAT = ROUNDED_TEXTURE_MAT
 				MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
 			end
 
@@ -499,8 +544,9 @@ local BASE_FUNCS; BASE_FUNCS = {
 			error("You can't get the material of a shadowed or blurred rectangle!")
 		end
 
+		MAT = select_rounded_mat()
+
 		if TEXTURE then
-			MAT = ROUNDED_TEXTURE_MAT
 			MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
 		end
 		SetupDraw()
@@ -524,14 +570,12 @@ end
 
 function RNDX.Rect(x, y, w, h)
 	RESET_PARAMS()
-	MAT = ROUNDED_MAT
 	X, Y, W, H = x, y, w, h
 	return RECT
 end
 
 function RNDX.Circle(x, y, radius)
 	RESET_PARAMS()
-	MAT = ROUNDED_MAT
 	SHAPE = SHAPES[SHAPE_CIRCLE]
 	local d = radius * 2
 	X, Y, W, H = x - radius, y - radius, d, d
