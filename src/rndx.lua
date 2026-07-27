@@ -211,7 +211,7 @@ local SHAPE, OUTLINE_THICKNESS
 local START_ANGLE, END_ANGLE, ROTATION
 local CLIP_PANEL
 local SHADOW_ENABLED, SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY
-local SHADOW_SIGMA, SHADOW_PAD
+local SHADOW_SIGMA, PAD
 local SHADOW_CLIP, RADII_NORMALIZED
 
 local function RESET_PARAMS()
@@ -226,7 +226,7 @@ local function RESET_PARAMS()
 	CLIP_PANEL = nil
 	SHADOW_ENABLED = false
 	SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY = 0, 0, 0, 0
-	SHADOW_SIGMA, SHADOW_PAD = 0, 0
+	SHADOW_SIGMA, PAD = 0, 0
 	SHADOW_CLIP = true
 	RADII_NORMALIZED = false
 end
@@ -294,7 +294,7 @@ local function SetupDraw()
 		BL, W, OUTLINE_THICKNESS or -1, sweep_rad,
 		BR, H, SHADOW_SIGMA, ROTATION,
 		TR, SHAPE, BLUR_INTENSITY or 1.0, slot_3z,
-		TL, flags_f, start_rad, SHADOW_PAD
+		TL, flags_f, start_rad, PAD
 	)
 	MATERIAL_SetMatrix(MAT, "$viewprojmat", matrix)
 
@@ -346,19 +346,33 @@ local function setup_shadows()
 	-- css-style offset
 	X = X + SHADOW_OX
 	Y = Y + SHADOW_OY
+end
 
-	-- derive gaussian sigma from blur, pad the quad so the falloff fits
-	local sigma = SHADOW_BLUR * 0.5
-	if sigma < 0.0001 then sigma = 0.0001 end
-	local pad = math_ceil(sigma * 3)
+local function setup_pad()
+	local pad = 0
 
-	X = X - pad
-	Y = Y - pad
-	W = W + pad * 2
-	H = H + pad * 2
+	if SHADOW_ENABLED then
+		local sigma = SHADOW_BLUR * 0.5
+		if sigma < 0.0001 then sigma = 0.0001 end
+		SHADOW_SIGMA = sigma
+		pad = math_ceil(sigma * 3)
+	end
 
-	SHADOW_SIGMA = sigma
-	SHADOW_PAD = pad
+	if ROTATION ~= 0 then
+		local c = math.abs(math.cos(ROTATION))
+		local si = math.abs(math.sin(ROTATION))
+		local hw, hh = W * 0.5, H * 0.5
+		local extra = math_max(hw * c + hh * si - hw, hw * si + hh * c - hh)
+		if extra > 0 then pad = pad + math_ceil(extra) + 2 end
+	end
+
+	if pad > 0 then
+		X = X - pad
+		Y = Y - pad
+		W = W + pad * 2
+		H = H + pad * 2
+	end
+	PAD = pad
 end
 
 ---------------------------------------------------------------------------
@@ -498,6 +512,7 @@ local BASE_FUNCS; BASE_FUNCS = {
 				COL_R, COL_G, COL_B, COL_A = 0, 0, 0, 255 -- shadows default to black
 			end
 			setup_shadows()
+			setup_pad()
 
 			if USING_BLUR then
 				local r, g, b, a = COL_R, COL_G, COL_B, COL_A
@@ -509,8 +524,10 @@ local BASE_FUNCS; BASE_FUNCS = {
 			SetupDraw()
 			surface_DrawTexturedRectUV(X, Y, W, H, -0.015625, -0.015625, 1.015625, 1.015625)
 		elseif USING_BLUR then
+			setup_pad()
 			draw_blur()
 		else
+			setup_pad()
 			if TEXTURE then
 				MAT = ROUNDED_TEXTURE_MAT
 				MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
@@ -536,13 +553,15 @@ local BASE_FUNCS; BASE_FUNCS = {
 			error("You can't get the material of a shadowed or blurred rectangle!")
 		end
 
+		setup_pad()
+
 		if TEXTURE then
 			MAT = ROUNDED_TEXTURE_MAT
 			MATERIAL_SetTexture(MAT, "$basetexture", TEXTURE)
 		end
 		SetupDraw()
 
-		return MAT
+		return MAT, X, Y, W, H
 	end,
 }
 

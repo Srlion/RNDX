@@ -11,7 +11,7 @@ float4 main(PS_INPUT i) : COLOR
     float4 rect_color;
     if (has_flag(FLAG_USE_TEXTURE))
     {
-        float2 rotated_uv = (centered_pos / SIZE) + 0.5;
+        float2 rotated_uv = (centered_pos / (SIZE - 2.0 * PAD)) + 0.5;
         rect_color = tex2D(TexBase, rotated_uv) * i.color;
     }
     else

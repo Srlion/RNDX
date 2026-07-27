@@ -6,7 +6,6 @@
 #include "common_rounded.hlsl"
 
 #define SHADOW_SIGMA g_viewProjMatrix[2].y // aliases AA (shadows don't AA)
-#define SHADOW_PAD g_viewProjMatrix[3].w
 #define SHADOW_SPREAD g_viewProjMatrix[3].z
 #define SHADOW_OX Constants0.y
 #define SHADOW_OY Constants0.z
@@ -82,7 +81,7 @@ float calculate_shadow(PS_INPUT i)
     float sigma = max(SHADOW_SIGMA, 0.0001);
     float s = SHADOW_SPREAD;
 
-    float2 box_half = max(SIZE * 0.5 - SHADOW_PAD, 0.0);
+    float2 box_half = max(SIZE * 0.5 - PAD, 0.0);
 
     float4 grown_radius = float4(
         grow_radius(RADIUS.x, s), grow_radius(RADIUS.y, s),

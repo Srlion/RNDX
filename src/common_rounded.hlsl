@@ -21,6 +21,7 @@ const float4x4 g_viewProjMatrix : register(c11);
 #define START_ANGLE g_viewProjMatrix[2].w // Start angle in radians (set in lua)
 #define SWEEP_ANGLE g_viewProjMatrix[3].x // Sweep width in radians, or -1 for full circle (set in lua)
 #define ROTATION g_viewProjMatrix[3].y    // Rotation in radians
+#define PAD g_viewProjMatrix[3].w
 
 #define FLAGS g_viewProjMatrix[1].w
 #define FLAG_USE_TEXTURE 1.0
@@ -107,8 +108,8 @@ float rounded_arc_sdf(float2 p, float2 b, float4 r)
 
 float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos)
 {
-    float2 screen_pos = i.uv.xy * SIZE;
-    float2 rect_half_size = SIZE * 0.5;
+    float2 screen_pos = i.uv.xy * SIZE - PAD;
+    float2 rect_half_size = SIZE * 0.5 - PAD;
 
     float2 centered_pos = screen_pos - rect_half_size;
 
@@ -126,30 +127,6 @@ float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos)
 
     float dist_inner = rounded_box_sdf(centered_pos, inner_half_size, inner_radius);
     float aa_inner = blended_AA(dist_inner, screen_pos);
-    return aa_outer * (1.0 - aa_inner);
-}
-
-float calculate_smooth_rounded_alpha(PS_INPUT i)
-{
-    float2 screen_pos = i.uv.xy * SIZE;
-    float2 rect_half_size = SIZE * 0.5;
-
-    float2 centered_pos = screen_pos - rect_half_size;
-
-    // Apply rotation
-    centered_pos = rotate_point(centered_pos);
-
-    float dist_outer = rounded_arc_sdf(centered_pos, rect_half_size, RADIUS);
-    float aa_outer = 1.0 - smoothstep(0.0, AA, dist_outer + AA);
-    if (OUTLINE_THICKNESS < 0)
-        return aa_outer;
-
-    // Adjust inner radii and size for outline
-    float2 inner_half_size = max(rect_half_size - OUTLINE_THICKNESS, 0.0);
-    float4 inner_radius = max(RADIUS - OUTLINE_THICKNESS, 0.0);
-    float dist_inner = rounded_box_sdf(centered_pos, inner_half_size, inner_radius);
-
-    float aa_inner = 1.0 - smoothstep(0.0, AA, dist_inner + AA);
     return aa_outer * (1.0 - aa_inner);
 }
 
