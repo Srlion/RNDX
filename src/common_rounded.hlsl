@@ -50,20 +50,6 @@ float rounded_box_sdf(float2 p, float2 b, float4 r) {
     return min(max(q.x, q.y), 0.0) + len - radius;
 }
 
-// Thanks to https://bohdon.com/docs/smooth-sdf-shape-edges/ awesome article
-float uv_filter_width_bias(float dist, float2 uv) {
-    float2 dpos = fwidth(uv);
-    float fw = max(dpos.x, dpos.y);
-    float biasedSDF = dist + 0.5 * fw;
-    return saturate(1.0 - biasedSDF / fw);
-}
-
-float blended_AA(float dist, float2 uv) {
-    float linear_cov = uv_filter_width_bias(dist, uv);
-    float smooth_cov = 1.0 - smoothstep(0.0, 1, dist + 1);
-    return lerp(linear_cov, smooth_cov, 0.06);
-}
-
 float rounded_arc_sdf(float2 p, float2 b, float4 r) {
     float box_dist = rounded_box_sdf(p, b, r);
 
@@ -87,27 +73,31 @@ float rounded_arc_sdf(float2 p, float2 b, float4 r) {
     return max(box_dist, angular_dist);
 }
 
+float sdf_coverage(float dist) {
+    float grad_len = clamp(length(float2(ddx(dist), ddy(dist))), 0.7, 1.5);
+    return saturate(0.5 - dist / grad_len);
+}
+
 float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos) {
     float2 screen_pos = i.uv.xy * SIZE;
-    float2 rect_half_size = SIZE * 0.5;
+    float2 half_size = SIZE * 0.5;
 
-    float2 centered_pos = screen_pos - rect_half_size;
+    float2 centered = rotate_point(screen_pos - half_size);
+    out_centered_pos = centered;
 
-    // Apply rotation
-    centered_pos = rotate_point(centered_pos);
-    out_centered_pos = centered_pos;
+    float dist_outer = rounded_arc_sdf(centered, half_size, RADIUS);
 
-    float dist_outer = rounded_arc_sdf(centered_pos, rect_half_size, RADIUS);
-    float aa_outer = blended_AA(dist_outer, screen_pos);
+    float2 inner_half = max(half_size - OUTLINE_THICKNESS, 0.0);
+    float4 inner_rad = max(RADIUS - OUTLINE_THICKNESS, 0.0);
+    float dist_inner = rounded_box_sdf(centered, inner_half, inner_rad);
+
+    float aa_outer = sdf_coverage(dist_outer);
+    float aa_inner = sdf_coverage(dist_inner);
+
     if (OUTLINE_THICKNESS < 0)
         return aa_outer;
 
-    float2 inner_half_size = max(rect_half_size - OUTLINE_THICKNESS, 0.0);
-    float4 inner_radius = max(RADIUS - OUTLINE_THICKNESS, 0.0);
-
-    float dist_inner = rounded_box_sdf(centered_pos, inner_half_size, inner_radius);
-    float aa_inner = blended_AA(dist_inner, screen_pos);
-    return aa_outer * (1.0 - aa_inner);
+    return saturate(aa_outer - aa_inner);
 }
 
 float calculate_smooth_rounded_alpha(PS_INPUT i) {
@@ -130,7 +120,7 @@ float calculate_smooth_rounded_alpha(PS_INPUT i) {
     float dist_inner = rounded_box_sdf(centered_pos, inner_half_size, inner_radius);
 
     float aa_inner = 1.0 - smoothstep(0.0, AA, dist_inner + AA);
-    return aa_outer * (1.0 - aa_inner);
+    return saturate(aa_outer - aa_inner);
 }
 
 /* filter width bias, we could use it later
