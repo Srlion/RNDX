@@ -9,13 +9,13 @@
 #include "common.hlsl"
 
 // Thanks to svetov/jaffies for this hack, to be able to supply constants in two C calls from lua
-const float4x4 g_viewProjMatrix : register( c11 );
+const float4x4 g_viewProjMatrix : register(c11);
 #define RADIUS g_viewProjMatrix[0]
 #define SIZE g_viewProjMatrix[1].xy
 #define POWER_PARAMETER g_viewProjMatrix[1].z
 #define USE_TEXTURE g_viewProjMatrix[1].w
 #define OUTLINE_THICKNESS g_viewProjMatrix[2].x
-#define AA g_viewProjMatrix[2].y // Anti-aliasing smoothness (pixels)
+#define AA g_viewProjMatrix[2].y             // Anti-aliasing smoothness (pixels)
 #define BLUR_INTENSITY g_viewProjMatrix[2].z // Blur intensity
 #define BLUR_VERTICAL Constants0.x
 #define START_ANGLE g_viewProjMatrix[2].w // Start angle in radians (set in lua)
@@ -25,25 +25,27 @@ const float4x4 g_viewProjMatrix : register( c11 );
 #define DEG_TO_RAD 0.01745329251994329576923690768489
 #define TWO_PI 6.28318530718
 
-float length_custom(float2 vec) {
+float length_custom(float2 vec)
+{
     float2 powered = pow(vec, POWER_PARAMETER);
     return pow(dot(powered, 1.0), 1.0 / POWER_PARAMETER);
 }
 
 // Rotate a 2D point by given angle (in radians)
-float2 rotate_point(float2 p) {
+float2 rotate_point(float2 p)
+{
     float s, c;
     sincos(ROTATION, s, c);
     return float2(p.x * c - p.y * s, p.x * s + p.y * c);
 }
 
-float rounded_box_sdf(float2 p, float2 b, float4 r) {
+float rounded_box_sdf(float2 p, float2 b, float4 r)
+{
     float2 quadrant = step(0.0, p.xy);
     float radius = lerp(
         lerp(r.w, r.x, quadrant.y),
         lerp(r.z, r.y, quadrant.y),
-        quadrant.x
-    );
+        quadrant.x);
     float2 q = abs(p) - b + radius;
     float2 q_clamped = max(q, 0.0);
     float len = length_custom(q_clamped);
@@ -51,24 +53,28 @@ float rounded_box_sdf(float2 p, float2 b, float4 r) {
 }
 
 // Thanks to https://bohdon.com/docs/smooth-sdf-shape-edges/ awesome article
-float uv_filter_width_bias(float dist, float2 uv) {
+float uv_filter_width_bias(float dist, float2 uv)
+{
     float2 dpos = fwidth(uv);
     float fw = max(dpos.x, dpos.y);
     float biasedSDF = dist + 0.5 * fw;
     return saturate(1.0 - biasedSDF / fw);
 }
 
-float blended_AA(float dist, float2 uv) {
+float blended_AA(float dist, float2 uv)
+{
     float linear_cov = uv_filter_width_bias(dist, uv);
     float smooth_cov = 1.0 - smoothstep(0.0, 1, dist + 1);
     return lerp(linear_cov, smooth_cov, 0.06);
 }
 
-float rounded_arc_sdf(float2 p, float2 b, float4 r) {
+float rounded_arc_sdf(float2 p, float2 b, float4 r)
+{
     float box_dist = rounded_box_sdf(p, b, r);
 
     // SWEEP_ANGLE is precomputed in lua: -1 means full circle
-    if (SWEEP_ANGLE < 0.0) {
+    if (SWEEP_ANGLE < 0.0)
+    {
         return box_dist;
     }
 
@@ -76,9 +82,12 @@ float rounded_arc_sdf(float2 p, float2 b, float4 r) {
     float rel = fmod(atan2(p.y, p.x) - START_ANGLE + TWO_PI * 2.0, TWO_PI);
 
     float angular_dist;
-    if (rel <= SWEEP_ANGLE) {
+    if (rel <= SWEEP_ANGLE)
+    {
         angular_dist = -min(rel, SWEEP_ANGLE - rel) * length(p);
-    } else {
+    }
+    else
+    {
         float to_end = rel - SWEEP_ANGLE;
         float to_start = TWO_PI - rel;
         angular_dist = min(to_start, to_end) * length(p);
@@ -87,7 +96,8 @@ float rounded_arc_sdf(float2 p, float2 b, float4 r) {
     return max(box_dist, angular_dist);
 }
 
-float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos) {
+float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos)
+{
     float2 screen_pos = i.uv.xy * SIZE;
     float2 rect_half_size = SIZE * 0.5;
 
@@ -110,7 +120,8 @@ float calculate_rounded_alpha(PS_INPUT i, out float2 out_centered_pos) {
     return aa_outer * (1.0 - aa_inner);
 }
 
-float calculate_smooth_rounded_alpha(PS_INPUT i) {
+float calculate_smooth_rounded_alpha(PS_INPUT i)
+{
     float2 screen_pos = i.uv.xy * SIZE;
     float2 rect_half_size = SIZE * 0.5;
 

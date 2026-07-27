@@ -1,6 +1,7 @@
 #include "common_rounded.hlsl"
 
-float4 main(PS_INPUT i) : COLOR {
+float4 main(PS_INPUT i) : COLOR
+{
     float2 centered_pos;
     float alpha = calculate_rounded_alpha(i, centered_pos);
 

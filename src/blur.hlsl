@@ -4,21 +4,25 @@
 // https://www.shadertoy.com/view/Xd33Rf
 #include "common_rounded.hlsl"
 
-static const float w[8] = {0.026109, 0.034202, 0.043219, 0.052683, 0.061948, 0.070266, 0.076883, 0.081149};
-static const float o[8] = {15.5, 13.5, 11.5, 9.5, 7.5, 5.5, 3.5, 1.5};
+static const float w[8] = { 0.026109, 0.034202, 0.043219, 0.052683, 0.061948, 0.070266, 0.076883, 0.081149 };
+static const float o[8] = { 15.5, 13.5, 11.5, 9.5, 7.5, 5.5, 3.5, 1.5 };
 
 float3 blur(float2 uv, float vertical)
 {
     float2 dir = vertical ? float2(0, 1) : float2(1, 0);
     float3 blr = float3(0.0, 0.0, 0.0);
 
-    [unroll] for(int i = 0; i < 8; i++) {
+    [unroll]
+    for (int i = 0; i < 8; i++)
+    {
         blr += w[i] * tex2D(TexBase, uv - Tex1Size * (o[i] * BLUR_INTENSITY * dir)).rgb;
     }
 
     blr += 0.041312 * tex2D(TexBase, uv).rgb;
 
-    [unroll] for(int j = 7; j >= 0; j--) {
+    [unroll]
+    for (int j = 7; j >= 0; j--)
+    {
         blr += w[j] * tex2D(TexBase, uv + Tex1Size * (o[j] * BLUR_INTENSITY * dir)).rgb;
     }
 
