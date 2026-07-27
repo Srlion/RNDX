@@ -399,6 +399,16 @@ local BASE_FUNCS; BASE_FUNCS = {
 		END_ANGLE = end_angle or 360
 		return self
 	end,
+	---@deprecated Use Angles(start_angle, end_angle) instead.
+	StartAngle = function(self, angle)
+		START_ANGLE = angle or 0
+		return self
+	end,
+	---@deprecated Use Angles(start_angle, end_angle) instead.
+	EndAngle = function(self, angle)
+		END_ANGLE = angle or 360
+		return self
+	end,
 	Shadow = function(self, blur, spread, offset_x, offset_y)
 		SHADOW_ENABLED = true
 		SHADOW_BLUR = math_max(blur or 20, 0)
@@ -581,5 +591,118 @@ function RNDX.SetFlag(flags, flag, bool)
 		return bit.band(flags, bit.bnot(flag))
 	end
 end
+
+---------------------------------------------------------------------------
+-- LEGACY API (deprecated, kept for backwards compatibility)
+---------------------------------------------------------------------------
+
+---@deprecated Use RNDX.Rect(x, y, w, h):Rad(r):Color(col):Draw() instead.
+function RNDX.Draw(r, x, y, w, h, col, flags)
+	if col and col.a == 0 then return end
+	local rect = RNDX.Rect(x, y, w, h):Rad(r)
+	if col then rect:Color(col) end
+	rect:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Rect(...):Rad(r):Outline(thickness):Draw() instead.
+function RNDX.DrawOutlined(r, x, y, w, h, col, thickness, flags)
+	if col and col.a == 0 then return end
+	local rect = RNDX.Rect(x, y, w, h):Rad(r):Outline(thickness or 1)
+	if col then rect:Color(col) end
+	rect:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Rect(...):Rad(r):Texture(texture):Draw() instead.
+function RNDX.DrawTexture(r, x, y, w, h, col, texture, flags)
+	if col and col.a == 0 then return end
+	local rect = RNDX.Rect(x, y, w, h):Rad(r):Texture(texture)
+	if col then rect:Color(col) end
+	rect:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Rect(...):Rad(r):Material(mat):Draw() instead.
+function RNDX.DrawMaterial(r, x, y, w, h, col, mat, flags)
+	local tex = mat:GetTexture("$basetexture")
+	if tex then
+		return RNDX.DrawTexture(r, x, y, w, h, col, tex, flags)
+	end
+end
+
+---@deprecated Use RNDX.Circle(x, y, radius):Draw() instead. NOTE: legacy `r` is a DIAMETER, new API takes a RADIUS.
+function RNDX.DrawCircle(x, y, r, col, flags)
+	if col and col.a == 0 then return end
+	local c = RNDX.Circle(x, y, r / 2)
+	if col then c:Color(col) end
+	c:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Circle(x, y, radius):Outline(thickness):Draw() instead. Legacy `r` is a DIAMETER.
+function RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)
+	if col and col.a == 0 then return end
+	local c = RNDX.Circle(x, y, r / 2):Outline(thickness or 1)
+	if col then c:Color(col) end
+	c:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Circle(x, y, radius):Texture(texture):Draw() instead. Legacy `r` is a DIAMETER.
+function RNDX.DrawCircleTexture(x, y, r, col, texture, flags)
+	if col and col.a == 0 then return end
+	local c = RNDX.Circle(x, y, r / 2):Texture(texture)
+	if col then c:Color(col) end
+	c:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Circle(x, y, radius):Material(mat):Draw() instead. Legacy `r` is a DIAMETER.
+function RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)
+	if col and col.a == 0 then return end
+	local c = RNDX.Circle(x, y, r / 2):Material(mat)
+	if col then c:Color(col) end
+	c:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Rect(...):Radii(tl, tr, bl, br):Blur(intensity):Draw() instead.
+function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
+	local rect = RNDX.Rect(x, y, w, h):Radii(tl, tr, bl, br):Blur()
+	if thickness then rect:Outline(thickness) end
+	rect:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Rect(...):Radii(...):Shadow(blur, spread, ox, oy):Draw() instead. Visuals are approximated, not identical.
+function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, intensity, thickness)
+	if col and col.a == 0 then return end
+	spread = spread or 30
+	local rect = RNDX.Rect(x, y, w, h)
+		:Radii(tl, tr, bl, br)
+		:Shadow(intensity or (spread * 1.2), spread)
+	if thickness then rect:Outline(thickness) end
+	if col then rect:Color(col) end
+	rect:Flags(flags or 0):Draw()
+end
+
+---@deprecated Use RNDX.Rect(...):Rad(r):Shadow(blur, spread, ox, oy):Draw() instead. Visuals are approximated, not identical.
+function RNDX.DrawShadows(r, x, y, w, h, col, spread, intensity, flags)
+	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity)
+end
+
+---@deprecated Use RNDX.Rect(...):Rad(r):Outline(thickness):Shadow(...):Draw() instead. Visuals are approximated, not identical.
+function RNDX.DrawShadowsOutlined(r, x, y, w, h, col, thickness, spread, intensity, flags)
+	return RNDX.DrawShadowsEx(x, y, w, h, col, flags, r, r, r, r, spread, intensity, thickness or 1)
+end
+
+-- Legacy RNDX() call style
+local LEGACY_TYPES = {
+	Rect = RNDX.Rect,
+	---@deprecated Legacy Circle(x, y, size) treats `size` as a DIAMETER; RNDX.Circle takes a radius.
+	Circle = function(x, y, r)
+		return RNDX.Circle(x, y, r / 2)
+	end,
+}
+
+setmetatable(RNDX, {
+	---@deprecated Use RNDX.Rect(...) / RNDX.Circle(...) directly instead of RNDX().Rect(...).
+	__call = function()
+		return LEGACY_TYPES
+	end
+})
 
 return RNDX
