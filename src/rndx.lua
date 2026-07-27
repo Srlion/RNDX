@@ -88,6 +88,7 @@ local DEFAULT_SHAPE                        = SHAPE_FIGMA
 local DEFAULT_BLUR_INTENSITY               = 1.0
 
 local BLUR_VERTICAL                        = "$c0_x"
+local SHADOW_OX_C, SHADOW_OY_C             = "$c0_y", "$c0_z"
 
 ---------------------------------------------------------------------------
 -- MATERIALS
@@ -211,6 +212,7 @@ local START_ANGLE, END_ANGLE, ROTATION
 local CLIP_PANEL
 local SHADOW_ENABLED, SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY
 local SHADOW_SIGMA, SHADOW_PAD
+local SHADOW_CLIP, RADII_NORMALIZED
 
 local function RESET_PARAMS()
 	MAT = nil
@@ -225,6 +227,8 @@ local function RESET_PARAMS()
 	SHADOW_ENABLED = false
 	SHADOW_BLUR, SHADOW_SPREAD, SHADOW_OX, SHADOW_OY = 0, 0, 0, 0
 	SHADOW_SIGMA, SHADOW_PAD = 0, 0
+	SHADOW_CLIP = true
+	RADII_NORMALIZED = false
 end
 
 ---------------------------------------------------------------------------
@@ -262,17 +266,26 @@ local normalize_corner_radii; do
 end
 
 local function SetupDraw()
-	local TL, TR, BL, BR = normalize_corner_radii()
+	local TL, TR, BL, BR = TL, TR, BL, BR
+	if not RADII_NORMALIZED then
+		TL, TR, BL, BR = normalize_corner_radii()
+	end
+
+	local flags_f = 0
+	if TEXTURE then flags_f = flags_f + 1 end                     -- FLAG_USE_TEXTURE
+	if SHADOW_ENABLED and SHADOW_CLIP then flags_f = flags_f + 2 end -- FLAG_SHADOW_CLIP
 
 	local start_rad, sweep_rad
 	local sweep = END_ANGLE - START_ANGLE
 	if sweep >= 360 then
-		start_rad, sweep_rad = 0, -1 -- full circle, shader skips arc math
+		start_rad, sweep_rad = 0, -1 -- full circle, shaders skip arc math
 	else
 		if sweep < 0 then sweep = sweep + 360 end
 		start_rad = (START_ANGLE % 360) * 0.017453292519943295
 		sweep_rad = sweep * 0.017453292519943295
 	end
+
+	local slot_3z = SHADOW_ENABLED and SHADOW_SPREAD or 0
 
 	local matrix = MATRIXES[MAT]
 	MATRIX_SetUnpacked(
@@ -280,10 +293,15 @@ local function SetupDraw()
 
 		BL, W, OUTLINE_THICKNESS or -1, sweep_rad,
 		BR, H, SHADOW_SIGMA, ROTATION,
-		TR, SHAPE, BLUR_INTENSITY or 1.0, 0,
-		TL, TEXTURE and 1 or 0, start_rad, SHADOW_PAD
+		TR, SHAPE, BLUR_INTENSITY or 1.0, slot_3z,
+		TL, flags_f, start_rad, SHADOW_PAD
 	)
 	MATERIAL_SetMatrix(MAT, "$viewprojmat", matrix)
+
+	if SHADOW_ENABLED then
+		MATERIAL_SetFloat(MAT, SHADOW_OX_C, SHADOW_OX)
+		MATERIAL_SetFloat(MAT, SHADOW_OY_C, SHADOW_OY)
+	end
 
 	if COL_R then
 		surface_SetDrawColor(COL_R, COL_G, COL_B, COL_A)
@@ -308,16 +326,21 @@ local function draw_blur(shadow)
 end
 
 local function setup_shadows()
-	-- css-style spread: grow the shape uniformly, radii follow
+	TL, TR, BL, BR = normalize_corner_radii()
+	RADII_NORMALIZED = true
+
+	-- css: negative spread shrinks the box to zero at most, never inverts it
+	if SHADOW_SPREAD < 0 then
+		local min_half = math_min(W, H) * 0.5
+		if -SHADOW_SPREAD > min_half then SHADOW_SPREAD = -min_half end
+	end
+
+	-- css-style spread: grow the quad; radii growth happens IN THE SHADER now
 	if SHADOW_SPREAD ~= 0 then
 		X = X - SHADOW_SPREAD
 		Y = Y - SHADOW_SPREAD
 		W = W + SHADOW_SPREAD * 2
 		H = H + SHADOW_SPREAD * 2
-		TL = math_max(TL + SHADOW_SPREAD, 0)
-		TR = math_max(TR + SHADOW_SPREAD, 0)
-		BL = math_max(BL + SHADOW_SPREAD, 0)
-		BR = math_max(BR + SHADOW_SPREAD, 0)
 	end
 
 	-- css-style offset
@@ -415,6 +438,10 @@ local BASE_FUNCS; BASE_FUNCS = {
 		SHADOW_SPREAD = spread or 0
 		SHADOW_OX = offset_x or 0
 		SHADOW_OY = offset_y or 0
+		return self
+	end,
+	ShadowClip = function(self, enabled)
+		SHADOW_CLIP = enabled ~= false
 		return self
 	end,
 	Clip = function(self, pnl)

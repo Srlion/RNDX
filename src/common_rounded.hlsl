@@ -10,10 +10,10 @@
 
 // Thanks to svetov/jaffies for this hack, to be able to supply constants in two C calls from lua
 const float4x4 g_viewProjMatrix : register(c11);
+
 #define RADIUS g_viewProjMatrix[0]
 #define SIZE g_viewProjMatrix[1].xy
 #define POWER_PARAMETER g_viewProjMatrix[1].z
-#define USE_TEXTURE g_viewProjMatrix[1].w
 #define OUTLINE_THICKNESS g_viewProjMatrix[2].x
 #define AA g_viewProjMatrix[2].y             // Anti-aliasing smoothness (pixels)
 #define BLUR_INTENSITY g_viewProjMatrix[2].z // Blur intensity
@@ -21,6 +21,15 @@ const float4x4 g_viewProjMatrix : register(c11);
 #define START_ANGLE g_viewProjMatrix[2].w // Start angle in radians (set in lua)
 #define SWEEP_ANGLE g_viewProjMatrix[3].x // Sweep width in radians, or -1 for full circle (set in lua)
 #define ROTATION g_viewProjMatrix[3].y    // Rotation in radians
+
+#define FLAGS g_viewProjMatrix[1].w
+#define FLAG_USE_TEXTURE 1.0
+#define FLAG_SHADOW_CLIP 2.0
+
+bool has_flag(float bit)
+{
+    return fmod(floor(FLAGS + 0.5), bit * 2.0) >= bit;
+}
 
 #define DEG_TO_RAD 0.01745329251994329576923690768489
 #define TWO_PI 6.28318530718
