@@ -4,9 +4,9 @@
 
 Shader-powered drawing library for Garry's Mod. Rounded boxes, circles, outlines, blur and CSS-style shadows — with near-perfect anti-aliasing and no performance hit.
 
-![Screenshot](thumbnail.png)
-![Screenshot](thumbnail2.png)
-![Screenshot](sbot.png)
+![Screenshot](.github/images/thumbnail.png)
+![Screenshot](.github/images/thumbnail2.png)
+![Screenshot](.github/images/sbot.png)
 
 ## Install
 
@@ -69,7 +69,7 @@ end)
 | `:Clip(panel)` | Clip to a panel |
 | `:Draw()` | Draw it |
 
-![Screenshot](shapes.jpg)
+![Screenshot](.github/images/shapes.jpg)
 
 Defaults:
 
@@ -79,56 +79,122 @@ RNDX.SetDefaultBlurIntensity(3)
 RNDX.SetLegacyGamma(true) -- match gmod's default (broken) gamma, so colors look the same as draw.RoundedBox & other addons
 ```
 
-## Examples
+## Showcase
+
+![Showcase](.github/images/showcase.webm)
 
 ```lua
-draw.RoundedBox(8, x, y, w, h, col)          -- old
-RNDX.Rect(x, y, w, h):Rad(8):Color(col):Draw() -- rndx
-```
+surface.CreateFont("RNDX_Label", {
+    font = "Roboto",
+    size = 18,
+    weight = 500,
+})
 
-Pill / fully rounded ends:
-
-```lua
-RNDX.Rect(x, y, 120, 36):Rad(math.huge):Color(80, 160, 255):Draw()
-```
-
-Rounded top corners only:
-
-```lua
-RNDX.Rect(x, y, w, h):Radii(8, 8, 0, 0):Color(40, 40, 45):Draw()
-```
-
-Card with a soft shadow:
-
-```lua
-RNDX.Rect(x, y, 300, 180):Rad(12):Shadow(30, 0, 0, 10):Draw() -- shadow
-RNDX.Rect(x, y, 300, 180):Rad(12):Color(35, 35, 40):Draw()    -- card
-```
-
-Loading spinner:
-
-```lua
-RNDX.Circle(x, y, 24)
-    :Color(255, 255, 255)
-    :Outline(4)
-    :Angles(0, 270)
-    :Rotation(CurTime() * 360 % 360)
-    :Draw()
-```
-
-Progress bar:
-
-```lua
-RNDX.Rect(x, y, 200, 8):Rad(4):Color(50, 50, 50):Draw()
-RNDX.Rect(x, y, 200 * progress, 8):Rad(4):Color(80, 160, 255):Draw()
-```
-
-Inside a panel:
-
-```lua
-function PANEL:Paint(w, h)
-    RNDX.Rect(0, 0, w, h):Rad(8):Color(30, 30, 30, 240):Blur():Draw()
+local function label(text, x, w, y)
+    draw.SimpleText(text, "RNDX_Label", x + w / 2, y, color_white, TEXT_ALIGN_CENTER)
 end
+
+hook.Add("HUDPaint", "RNDX_Showcase", function()
+    local t = CurTime()
+
+    -- row 1: radii
+    RNDX.Rect(50, 50, 150, 100):Rad(0):Color(60, 60, 70):Draw()
+    label("Rad(0)", 50, 150, 158)
+
+    RNDX.Rect(230, 50, 150, 100):Rad(16):Color(80, 120, 200):Draw()
+    label("Rad(16)", 230, 150, 158)
+
+    RNDX.Rect(410, 50, 150, 100):Rad(math.huge):Color(200, 80, 120):Draw()
+    label("Rad(math.huge)", 410, 150, 158)
+
+    RNDX.Rect(590, 50, 150, 100):Radii(40, 0, 0, 40):Color(80, 200, 140):Draw()
+    label("Radii(40, 0, 0, 40)", 590, 150, 158)
+
+    RNDX.Rect(770, 50, 150, 100):Rad(20):Color(255, 255, 255):Outline(3):Draw()
+    label("Outline(3)", 770, 150, 158)
+
+    -- row 2: corner shapes, same radius
+    RNDX.Rect(50, 210, 150, 100):Rad(40):Shape(RNDX.SHAPE_CIRCLE):Color(220, 160, 60):Draw()
+    label("SHAPE_CIRCLE", 50, 150, 318)
+
+    RNDX.Rect(230, 210, 150, 100):Rad(40):Shape(RNDX.SHAPE_FIGMA):Color(220, 160, 60):Draw()
+    label("SHAPE_FIGMA", 230, 150, 318)
+
+    RNDX.Rect(410, 210, 150, 100):Rad(40):Shape(RNDX.SHAPE_IOS):Color(220, 160, 60):Draw()
+    label("SHAPE_IOS", 410, 150, 318)
+
+    -- row 3: shadows
+    RNDX.Rect(50, 380, 180, 120):Rad(16):Shadow(40):Draw()
+    RNDX.Rect(50, 380, 180, 120):Rad(16):Color(40, 40, 48):Draw()
+    label("Shadow(40)", 50, 180, 530)
+
+    RNDX.Rect(280, 380, 180, 120):Rad(16):Shadow(8, 0, 6, 6):Draw()
+    RNDX.Rect(280, 380, 180, 120):Rad(16):Color(40, 40, 48):Draw()
+    label("Shadow(8, 0, 6, 6)", 280, 180, 530)
+
+    RNDX.Rect(510, 380, 180, 120):Rad(16):Color(0, 0, 0, 100):Shadow(15, -3, 0, 10):Draw()
+    RNDX.Rect(510, 380, 180, 120):Rad(16):Color(40, 40, 48):Draw()
+    label("Shadow(15, -3, 0, 10)", 510, 180, 530)
+
+    RNDX.Rect(740, 380, 180, 120):Rad(16):Color(255, 60, 60, 180):Shadow(30):Draw()
+    RNDX.Rect(740, 380, 180, 120):Rad(16):Color(50, 30, 30):Draw()
+    label("Colored glow", 740, 180, 530)
+
+    local pulse = 15 + math.sin(t * 2) * 10
+    RNDX.Rect(970, 380, 180, 120):Rad(16):Color(100, 200, 255, 200):Shadow(pulse):Draw()
+    RNDX.Rect(970, 380, 180, 120):Rad(16):Color(30, 40, 50):Draw()
+    label("Animated shadow", 970, 180, 530)
+
+    -- row 4: blur
+    RNDX.Rect(50, 590, 200, 120):Rad(20):Blur():Draw()
+    label("Blur()", 50, 200, 718)
+
+    RNDX.Rect(280, 590, 200, 120):Rad(20):Blur(3):Draw()
+    label("Blur(3)", 280, 200, 718)
+
+    RNDX.Rect(510, 590, 200, 120):Rad(20):Blur(2):Draw()
+    RNDX.Rect(510, 590, 200, 120):Rad(20):Color(255, 255, 255, 30):Outline(1):Draw()
+    label("Glass card", 510, 200, 718)
+
+    -- row 5: circles & animation
+    RNDX.Circle(830, 650, 50):Color(120, 180, 255):Draw()
+    label("Circle", 780, 100, 718)
+
+    RNDX.Circle(950, 650, 50):Color(255, 255, 255):Outline(6):Draw()
+    label("Outline", 900, 100, 718)
+
+    RNDX.Circle(200, 810, 40)
+        :Color(255, 255, 255)
+        :Outline(6)
+        :Angles(0, 270)
+        :Rotation(t * 360 % 360)
+        :Draw()
+    label("Spinner", 160, 80, 868)
+
+    RNDX.Rect(320, 770, 80, 80)
+        :Rad(24)
+        :Shape(RNDX.SHAPE_IOS)
+        :Color(200, 120, 255)
+        :Rotation(t * 60 % 360)
+        :Draw()
+    label("Rotation", 320, 80, 868)
+
+    -- pacman
+    local chomp = math.abs(math.sin(t * 6)) * 40 + 5
+    RNDX.Circle(520, 810, 45)
+        :Color(255, 220, 40)
+        :Angles(chomp, 360 - chomp)
+        :Draw()
+
+    local px = (t * 80) % 200
+    for i = 0, 3 do
+        local dot_x = 580 + i * 50 - px
+        if dot_x > 535 then
+            RNDX.Circle(dot_x, 810, 8):Color(255, 255, 255):Draw()
+        end
+    end
+    label("pacman", 480, 80, 868)
+end)
 ```
 
 ## Benchmarks (OLD)
