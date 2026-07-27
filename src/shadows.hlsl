@@ -100,22 +100,15 @@ float calculate_shadow(PS_INPUT i)
 
     if (SWEEP_ANGLE >= 0.0)
     {
-        float s0, c0, s1, c1;
-        sincos(START_ANGLE, s0, c0);
-        sincos(START_ANGLE + SWEEP_ANGLE, s1, c1);
+        float rel = fmod(atan2(p.y, p.x) - START_ANGLE + TWO_PI * 2.0, TWO_PI);
 
-        float d1 = dot(p, float2(-s0, c0));
-        float d2 = dot(p, float2(s1, -c1));
-
-        float2 cov = 0.5 + 0.5 * erf2(float2(d1, d2) * (0.70710678 / sigma));
-
-        float ang;
-        if (SWEEP_ANGLE <= 3.14159265)
-            ang = cov.x * cov.y;
+        float angular_dist;
+        if (rel <= SWEEP_ANGLE)
+            angular_dist = -min(rel, SWEEP_ANGLE - rel) * length(p);
         else
-            ang = 1.0 - (1.0 - cov.x) * (1.0 - cov.y);
+            angular_dist = min(TWO_PI - rel, rel - SWEEP_ANGLE) * length(p);
 
-        shadow *= ang;
+        shadow *= 0.5 - 0.5 * erf2(float2(angular_dist, 0) * (0.70710678 / sigma)).x;
     }
 
     if (has_flag(FLAG_SHADOW_CLIP))
@@ -125,7 +118,7 @@ float calculate_shadow(PS_INPUT i)
         float4 elem_r = min(RADIUS, min(elem_half.x, elem_half.y));
 
         float d = rounded_arc_sdf(elem_p, elem_half, elem_r);
-        shadow *= 1.0 - blended_AA(d, screen_pos);
+        shadow *= 1.0 - blended_AA(d + 1.0, screen_pos);
     }
 
     return saturate(shadow);
