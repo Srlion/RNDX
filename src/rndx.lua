@@ -641,7 +641,8 @@ function RNDX.Draw(r, x, y, w, h, col, flags)
 	if col and col.a == 0 then return end
 	local rect = RNDX.Rect(x, y, w, h):Rad(r)
 	if col then rect:Color(col) end
-	rect:Flags(flags or 0):Draw()
+	if flags then rect:Flags(flags) end
+	rect:Draw()
 end
 
 ---@deprecated Use RNDX.Rect(...):Rad(r):Outline(thickness):Draw() instead.
@@ -649,7 +650,8 @@ function RNDX.DrawOutlined(r, x, y, w, h, col, thickness, flags)
 	if col and col.a == 0 then return end
 	local rect = RNDX.Rect(x, y, w, h):Rad(r):Outline(thickness or 1)
 	if col then rect:Color(col) end
-	rect:Flags(flags or 0):Draw()
+	if flags then rect:Flags(flags) end
+	rect:Draw()
 end
 
 ---@deprecated Use RNDX.Rect(...):Rad(r):Texture(texture):Draw() instead.
@@ -657,7 +659,8 @@ function RNDX.DrawTexture(r, x, y, w, h, col, texture, flags)
 	if col and col.a == 0 then return end
 	local rect = RNDX.Rect(x, y, w, h):Rad(r):Texture(texture)
 	if col then rect:Color(col) end
-	rect:Flags(flags or 0):Draw()
+	if flags then rect:Flags(flags) end
+	rect:Draw()
 end
 
 ---@deprecated Use RNDX.Rect(...):Rad(r):Material(mat):Draw() instead.
@@ -673,7 +676,8 @@ function RNDX.DrawCircle(x, y, r, col, flags)
 	if col and col.a == 0 then return end
 	local c = RNDX.Circle(x, y, r / 2)
 	if col then c:Color(col) end
-	c:Flags(flags or 0):Draw()
+	if flags then c:Flags(flags) end
+	c:Draw()
 end
 
 ---@deprecated Use RNDX.Circle(x, y, radius):Outline(thickness):Draw() instead. Legacy `r` is a DIAMETER.
@@ -681,7 +685,8 @@ function RNDX.DrawCircleOutlined(x, y, r, col, thickness, flags)
 	if col and col.a == 0 then return end
 	local c = RNDX.Circle(x, y, r / 2):Outline(thickness or 1)
 	if col then c:Color(col) end
-	c:Flags(flags or 0):Draw()
+	if flags then c:Flags(flags) end
+	c:Draw()
 end
 
 ---@deprecated Use RNDX.Circle(x, y, radius):Texture(texture):Draw() instead. Legacy `r` is a DIAMETER.
@@ -689,7 +694,8 @@ function RNDX.DrawCircleTexture(x, y, r, col, texture, flags)
 	if col and col.a == 0 then return end
 	local c = RNDX.Circle(x, y, r / 2):Texture(texture)
 	if col then c:Color(col) end
-	c:Flags(flags or 0):Draw()
+	if flags then c:Flags(flags) end
+	c:Draw()
 end
 
 ---@deprecated Use RNDX.Circle(x, y, radius):Material(mat):Draw() instead. Legacy `r` is a DIAMETER.
@@ -697,14 +703,16 @@ function RNDX.DrawCircleMaterial(x, y, r, col, mat, flags)
 	if col and col.a == 0 then return end
 	local c = RNDX.Circle(x, y, r / 2):Material(mat)
 	if col then c:Color(col) end
-	c:Flags(flags or 0):Draw()
+	if flags then c:Flags(flags) end
+	c:Draw()
 end
 
 ---@deprecated Use RNDX.Rect(...):Radii(tl, tr, bl, br):Blur(intensity):Draw() instead.
 function RNDX.DrawBlur(x, y, w, h, flags, tl, tr, bl, br, thickness)
 	local rect = RNDX.Rect(x, y, w, h):Radii(tl, tr, bl, br):Blur()
 	if thickness then rect:Outline(thickness) end
-	rect:Flags(flags or 0):Draw()
+	if flags then rect:Flags(flags) end
+	rect:Draw()
 end
 
 ---@deprecated Use RNDX.Rect(...):Radii(...):Shadow(blur, spread, ox, oy):Draw() instead. Visuals are approximated, not identical.
@@ -716,7 +724,8 @@ function RNDX.DrawShadowsEx(x, y, w, h, col, flags, tl, tr, bl, br, spread, inte
 		:Shadow(intensity or (spread * 1.2), spread)
 	if thickness then rect:Outline(thickness) end
 	if col then rect:Color(col) end
-	rect:Flags(flags or 0):Draw()
+	if flags then rect:Flags(flags) end
+	rect:Draw()
 end
 
 ---@deprecated Use RNDX.Rect(...):Rad(r):Shadow(blur, spread, ox, oy):Draw() instead. Visuals are approximated, not identical.
